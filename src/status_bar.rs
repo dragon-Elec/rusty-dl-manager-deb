@@ -65,14 +65,15 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(5.0);
 
-            let text =
-                eframe::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS).size(19.0);
+            let text = eframe::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS)
+                .size(19.0)
+                .color(Color32::from_hex("#a4b9f0").expect("Bad Hex"));
             if ui.label(text).hovered() {
                 ui.output_mut(|o| o.cursor_icon = CursorIcon::Default)
             }
 
             ui.scope(|ui| {
-                ui.visuals_mut().extreme_bg_color = Color32::from_hex("#3c3c3c").expect("Bad Hex");
+                ui.visuals_mut().extreme_bg_color = Color32::from_hex("#a4b9f0").expect("Bad Hex");
                 ui.set_width(250.0);
                 let single_line = TextEdit::singleline(&mut interface.search).hint_text("Filename");
                 ui.add(single_line);

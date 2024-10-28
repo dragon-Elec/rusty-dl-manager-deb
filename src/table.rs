@@ -120,6 +120,17 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                                 });
                             } else {
                                 ui.centered_and_justified(|ui| {
+                                    let inner_color =
+                                        Color32::from_hex("#1e1e28").expect("Bad Hex");
+                                    ui.visuals_mut().widgets.inactive.weak_bg_fill = PB_COLOR;
+                                    ui.visuals_mut().widgets.open.weak_bg_fill = PB_COLOR;
+                                    ui.visuals_mut().widgets.hovered.weak_bg_fill = PB_COLOR;
+                                    ui.visuals_mut().widgets.active.weak_bg_fill = PB_COLOR;
+                                    ui.visuals_mut().widgets.inactive.fg_stroke.color = inner_color;
+                                    ui.visuals_mut().widgets.open.fg_stroke.color = inner_color;
+                                    ui.visuals_mut().widgets.hovered.fg_stroke.color = inner_color;
+                                    ui.visuals_mut().widgets.active.fg_stroke.color = inner_color;
+                                    ui.visuals_mut().override_text_color = Some(inner_color);
                                     egui::ComboBox::from_label("")
                                         .width(available_width * 0.20)
                                         .selected_text(format!("{:?}", fdl.action_on_save))
@@ -187,6 +198,7 @@ fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context, fixe
             ui.visuals_mut().selection.bg_fill = Color32::from_hex("#a4b9ef").expect("Bad Hex");
             ui.visuals_mut().override_text_color =
                 Some(Color32::from_hex("#1e1e28").expect("Bad Hex"));
+
             let mut pb = ProgressBar::new(percentage)
                 .desired_width(fixed_size)
                 .desired_height(ui.available_height())
