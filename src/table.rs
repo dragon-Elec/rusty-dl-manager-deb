@@ -6,7 +6,6 @@ use eframe::egui::{
 };
 use egui_extras::{Column, TableBuilder};
 use irox_egui_extras::progressbar::ProgressBar;
-use tokio::runtime::Runtime;
 pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
     let HEADING_COLOR: Color32 = Color32::from_hex("#e28c8f").expect("Bad Hex");
     let PB_COLOR = Color32::from_hex("#a4b9f0").expect("Bad Hex");
@@ -21,37 +20,26 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
         .header(30.0, |mut header| {
             header.col(|ui| {
                 ui.heading("");
-                ui.add(Separator::grow(Separator::default(), ui.available_width()));
             });
             header.col(|ui| {
-                let text = RichText::new("Filename")
-                    .color(HEADING_COLOR)
-                    .strong()
-                    .italics();
+                let text = RichText::new("Filename").color(HEADING_COLOR).strong();
                 ui.heading(text);
                 ui.add(Separator::grow(Separator::default(), ui.available_width()));
             });
             header.col(|ui| {
-                let text = RichText::new("Progress")
-                    .color(HEADING_COLOR)
-                    .strong()
-                    .italics();
+                let text = RichText::new("Progress").color(HEADING_COLOR).strong();
                 ui.heading(text);
                 ui.add(Separator::grow(Separator::default(), ui.available_width()));
             });
             header.col(|ui| {
                 let text = RichText::new("Action on save")
                     .color(HEADING_COLOR)
-                    .strong()
-                    .italics();
+                    .strong();
                 ui.heading(text);
                 ui.add(Separator::grow(Separator::default(), ui.available_width()));
             });
             header.col(|ui| {
-                let text = RichText::new("Toggle")
-                    .color(HEADING_COLOR)
-                    .strong()
-                    .italics();
+                let text = RichText::new("Toggle").color(HEADING_COLOR).strong();
                 ui.heading(text);
                 ui.add(Separator::grow(Separator::default(), ui.available_width()));
             });
@@ -75,6 +63,13 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                 body.row(30.0, |mut row| {
                     row.col(|ui| {
                         ui.add(Checkbox::without_text(&mut fdl.selected));
+                        let file = interface
+                            .files
+                            .iter_mut()
+                            .find(|f| f.file.name_on_disk == fdl.file.name_on_disk);
+                        if let Some(f) = file {
+                            f.selected = fdl.selected;
+                        }
                     });
                     row.col(|ui| {
                         file_name(file, ui);

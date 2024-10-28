@@ -2,7 +2,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 
 use dl::file2dl::File2Dl;
 use eframe::egui::{self, Color32, Separator};
-use egui_aesthetix::{themes::NordDark, Aesthetix};
+use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use extern_windows::{show_confirm_window, show_error_window, show_input_window};
 use status_bar::init_menu_bar;
 use table::lay_table;
@@ -76,6 +76,7 @@ struct MyApp {
     popups: PopUps,
     temp_action: Actions,
     search: String,
+    select_all: bool,
 }
 impl Default for MyApp {
     fn default() -> Self {
@@ -99,12 +100,14 @@ impl Default for MyApp {
                     },
                     temp_action: Actions::default(),
                     search: String::default(),
+                    select_all: false,
                 };
             }
         };
         let files = files
             .iter()
-            .map(|f| {
+            .enumerate()
+            .map(|(idx, f)| {
                 let file = f.to_owned();
                 FDl {
                     file,
@@ -115,11 +118,12 @@ impl Default for MyApp {
             })
             .collect::<Vec<_>>();
         Self {
-            files: files,
+            files,
             file_channel: channel(),
             popups: PopUps::default(),
             temp_action: Actions::default(),
             search: String::default(),
+            select_all: false,
         }
     }
 }
@@ -143,11 +147,11 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(NordDark.bg_secondary_color_visuals())
-                    .inner_margin(NordDark.margin_style())
+                    .fill(TokyoNight.bg_secondary_color_visuals())
+                    .inner_margin(TokyoNight.margin_style())
                     .stroke(egui::Stroke::new(
                         1.0,
-                        NordDark.bg_secondary_color_visuals(),
+                        TokyoNight.bg_secondary_color_visuals(),
                     )),
             )
             .show(ctx, |ui| {
@@ -177,11 +181,13 @@ impl eframe::App for MyApp {
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([190.0, 190.0]),
+        centered: true,
+        vsync: true,
         ..Default::default()
     };
     eframe::run_native(
-        "My egui App",
+        "Download Manager",
         options,
         Box::new(|cc| {
             let mut fonts = egui::FontDefinitions::default();
