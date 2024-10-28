@@ -2,9 +2,11 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 
 use dl::file2dl::File2Dl;
 use eframe::egui::{self, Color32, Separator};
+use egui_aesthetix::{themes::NordDark, Aesthetix};
 use extern_windows::{show_confirm_window, show_error_window, show_input_window};
 use status_bar::init_menu_bar;
 use table::lay_table;
+use tokio::runtime::Runtime;
 mod dl;
 mod extern_windows;
 mod status_bar;
@@ -72,6 +74,8 @@ struct MyApp {
     files: Vec<FDl>,
     file_channel: (Sender<File2Dl>, Receiver<File2Dl>),
     popups: PopUps,
+    temp_action: Actions,
+    search: String,
 }
 impl Default for MyApp {
     fn default() -> Self {
@@ -93,6 +97,8 @@ impl Default for MyApp {
                         download,
                         confirm,
                     },
+                    temp_action: Actions::default(),
+                    search: String::default(),
                 };
             }
         };
@@ -104,47 +110,68 @@ impl Default for MyApp {
                     file,
                     initiated: false,
                     selected: false,
+                    action_on_save: Actions::default(),
                 }
             })
             .collect::<Vec<_>>();
         Self {
-            files,
+            files: files,
             file_channel: channel(),
             popups: PopUps::default(),
+            temp_action: Actions::default(),
+            search: String::default(),
         }
     }
 }
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct FDl {
     file: File2Dl,
     initiated: bool,
     selected: bool,
+    action_on_save: Actions,
 }
 
+#[derive(Debug, Default, PartialEq, Clone)]
+pub enum Actions {
+    #[default]
+    None,
+    Reboot,
+    Shutdown,
+}
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        catppuccin_egui::set_theme(ctx, catppuccin_egui::MOCHA);
-        egui::CentralPanel::default().show(ctx, |ui| {
-            init_menu_bar(self, ui);
-            ui.add(Separator::grow(Separator::default(), ui.available_width()));
-            if self.popups.error.show {
-                show_error_window(ctx, self, &self.popups.error.value.clone());
-            };
-            if self.popups.download.show {
-                show_input_window(ctx, self);
-            }
-            lay_table(self, ui, ctx);
-            if self.popups.confirm.show {
-                let task = (self.popups.confirm.task)();
-                show_confirm_window(
-                    ctx,
-                    self,
-                    self.popups.confirm.color,
-                    &self.popups.confirm.text.clone(),
-                    task,
-                );
-            }
-        });
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::none()
+                    .fill(NordDark.bg_secondary_color_visuals())
+                    .inner_margin(NordDark.margin_style())
+                    .stroke(egui::Stroke::new(
+                        1.0,
+                        NordDark.bg_secondary_color_visuals(),
+                    )),
+            )
+            .show(ctx, |ui| {
+                init_menu_bar(self, ui);
+                ui.add(Separator::grow(Separator::default(), ui.available_width()));
+                run_downloads(self);
+                lay_table(self, ui, ctx);
+                if self.popups.confirm.show {
+                    let task = (self.popups.confirm.task)();
+                    show_confirm_window(
+                        ctx,
+                        self,
+                        self.popups.confirm.color,
+                        &self.popups.confirm.text.clone(),
+                        task,
+                    );
+                }
+                if self.popups.error.show {
+                    show_error_window(ctx, self, &self.popups.error.value.clone());
+                };
+                if self.popups.download.show {
+                    show_input_window(ctx, self);
+                }
+            });
     }
 }
 
@@ -163,4 +190,34 @@ fn main() -> eframe::Result {
             Ok(Box::new(MyApp::default()))
         }),
     )
+}
+
+fn run_downloads(interface: &mut MyApp) {
+    for fdl in interface.files.iter_mut() {
+        let file = &fdl.file;
+        let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
+        if !complete && !fdl.initiated {
+            let rt = Runtime::new().unwrap();
+            let file = file.clone();
+            let tx_error = interface.popups.error.channel.0.clone();
+            std::thread::spawn(move || {
+                rt.block_on(async move {
+                    loop {
+                        match file.single_thread_dl().await {
+                            Ok(_) => break,
+                            Err(e) => {
+                                tx_error.send(e.to_string()).unwrap();
+                            }
+                        }
+                    }
+                })
+            });
+            let rx = &interface.popups.error.channel.1;
+            if let Ok(val) = rx.try_recv() {
+                interface.popups.error.value = val;
+                interface.popups.error.show = true;
+            }
+            fdl.initiated = true;
+        }
+    }
 }

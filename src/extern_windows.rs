@@ -1,6 +1,6 @@
 use eframe::egui::{self, Align2, Button, Color32, Vec2};
 
-use crate::{dl::file2dl::File2Dl, FDl, MyApp};
+use crate::{dl::file2dl::File2Dl, Actions, FDl, MyApp};
 
 pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
     let window_size = egui::vec2(250.0, 200.0);
@@ -19,6 +19,27 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                 ui.colored_label(Color32::RED, &interface.popups.download.error);
             }
             ui.text_edit_singleline(&mut interface.popups.download.link);
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Action on save:");
+                    egui::ComboBox::from_label("")
+                        .selected_text(format!("{:?}", &interface.temp_action))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut interface.temp_action, Actions::None, "None");
+                            ui.selectable_value(
+                                &mut interface.temp_action,
+                                Actions::Shutdown,
+                                "Shutdown",
+                            );
+                            ui.selectable_value(
+                                &mut interface.temp_action,
+                                Actions::Reboot,
+                                "Reboot",
+                            );
+                        });
+                })
+            });
+
             ui.add_space(5f32);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
@@ -53,7 +74,9 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                             file,
                             initiated: false,
                             selected: false,
+                            action_on_save: interface.temp_action.clone(),
                         };
+                        interface.temp_action = Actions::None;
                         interface.files.push(file);
                         interface.popups.download.show = false;
                         interface.popups.download.error = String::default();

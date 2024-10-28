@@ -1,33 +1,60 @@
 use crate::MyApp;
-use eframe::egui::{menu, Color32};
+use eframe::egui::{menu, Align, Color32, Layout, RichText, TextEdit};
 use std::fs::{read_dir, remove_file};
 
 pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
     menu::bar(ui, |ui| {
+        let BAR_COLORS = Color32::from_hex("#a4b9ef").expect("Bad Hex");
+        let text = RichText::new("Files")
+            .color(BAR_COLORS)
+            .strong()
+            .italics()
+            .size(15.0);
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                ui.menu_button("File", |ui| {
+                ui.menu_button(text, |ui| {
                     file_button_content(interface, ui);
                 });
-                ui.menu_button("Downloads", |ui| {
-                    if ui.button("Add Download").clicked() {
+                let text = RichText::new("Downloads")
+                    .color(BAR_COLORS)
+                    .strong()
+                    .italics()
+                    .size(15.0);
+                ui.menu_button(text, |ui| {
+                    let text = RichText::new("Add Download")
+                        .color(BAR_COLORS)
+                        .strong()
+                        .italics();
+                    if ui.button(text).clicked() {
                         interface.popups.download.show = true;
                     }
-                    if ui.button("Resume all").clicked() {
+                    let text = RichText::new("Resume all")
+                        .color(BAR_COLORS)
+                        .strong()
+                        .italics();
+                    if ui.button(text).clicked() {
                         for core in interface.files.iter_mut() {
                             core.file
                                 .running
                                 .store(true, std::sync::atomic::Ordering::Relaxed);
                         }
                     }
-                    if ui.button("Pause all").clicked() {
+                    let text = RichText::new("Pause all")
+                        .color(BAR_COLORS)
+                        .strong()
+                        .italics();
+                    if ui.button(text).clicked() {
                         for core in interface.files.iter_mut() {
                             core.file
                                 .running
                                 .store(false, std::sync::atomic::Ordering::Relaxed);
                         }
                     }
-                    if ui.button("Delete all completed").clicked() {
+                    let text = RichText::new("Delete all completed")
+                        .color(BAR_COLORS)
+                        .strong()
+                        .italics();
+                    if ui.button(text).clicked() {
                         interface.files.retain(|core| {
                             !core
                                 .file
@@ -35,7 +62,11 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
                                 .load(std::sync::atomic::Ordering::Relaxed)
                         });
                     }
-                    if ui.button("Delete all incomplete").clicked() {
+                    let text = RichText::new("Delete all incomplete")
+                        .color(BAR_COLORS)
+                        .strong()
+                        .italics();
+                    if ui.button(text).clicked() {
                         interface.files.retain(|core| {
                             core.file
                                 .complete
@@ -45,11 +76,26 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
                 });
             });
         });
+        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+            let text =
+                eframe::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS).size(19.0);
+            let res = ui.label(text);
+            ui.scope(|ui| {
+                ui.visuals_mut().extreme_bg_color = Color32::from_hex("#3c3c3c").expect("Bad Hex");
+                ui.set_width(150.0);
+                ui.text_edit_singleline(&mut interface.search);
+            });
+        })
     });
 }
 
 fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
-    if ui.button("Remove selected from list").clicked() {
+    let BAR_COLORS = Color32::from_hex("#a4b9ef").expect("Bad Hex");
+    let text = RichText::new("Remove selected from list")
+        .color(BAR_COLORS)
+        .strong()
+        .italics();
+    if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::GREEN;
         interface.popups.confirm.task = Box::new(|| {
             Box::new(move |app: &mut MyApp| {
@@ -59,8 +105,11 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         interface.popups.confirm.show = true;
         interface.popups.confirm.text = String::from("This will remove files selected from list")
     }
-
-    if ui.button("Remove selected from disk").clicked() {
+    let text = RichText::new("Remove selected from disk")
+        .color(BAR_COLORS)
+        .strong()
+        .italics();
+    if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::RED;
         interface.popups.confirm.task = Box::new(|| {
             Box::new(move |app: &mut MyApp| {
@@ -70,7 +119,11 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         interface.popups.confirm.show = true;
         interface.popups.confirm.text = String::from("This will remove selected files from disk")
     }
-    if ui.button("Remove all from list").clicked() {
+    let text = RichText::new("Remove all from list")
+        .color(BAR_COLORS)
+        .strong()
+        .italics();
+    if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::GREEN;
         interface.popups.confirm.task = Box::new(|| {
             Box::new(move |app: &mut MyApp| {
@@ -80,7 +133,11 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         interface.popups.confirm.show = true;
         interface.popups.confirm.text = "This will not delete files from disk".to_string();
     }
-    if ui.button("Remove all from disk").clicked() {
+    let text = RichText::new("Remove all from disk")
+        .color(BAR_COLORS)
+        .strong()
+        .italics();
+    if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::RED;
         interface.popups.confirm.task = Box::new(|| {
             Box::new(move |app: &mut MyApp| {

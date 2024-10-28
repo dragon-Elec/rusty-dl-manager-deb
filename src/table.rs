@@ -1,6 +1,8 @@
-use crate::{dl::file2dl::File2Dl, MyApp};
+use std::{os::unix::process::CommandExt, process::Command};
+
+use crate::{dl::file2dl::File2Dl, Actions, MyApp};
 use eframe::egui::{
-    Button, Checkbox, Color32, Context, CursorIcon, Label, RichText, Separator, Ui,
+    self, Button, Checkbox, Color32, Context, CursorIcon, Label, RichText, Separator, Ui,
 };
 use egui_extras::{Column, TableBuilder};
 use irox_egui_extras::progressbar::ProgressBar;
@@ -10,13 +12,16 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
     let PB_COLOR = Color32::from_hex("#a4b9f0").expect("Bad Hex");
     TableBuilder::new(ui)
         .auto_shrink(false)
-        .column(Column::auto().at_least(20.0))
+        .striped(true)
+        .column(Column::auto().at_most(20.0))
         .column(Column::auto().at_least(130.0))
-        .column(Column::auto().at_least(300.0))
-        .column(Column::remainder())
+        .column(Column::auto().at_least(270.0))
+        .column(Column::remainder().at_most(150.0))
+        .column(Column::remainder().at_least(120.0))
         .header(30.0, |mut header| {
             header.col(|ui| {
                 ui.heading("");
+                ui.add(Separator::grow(Separator::default(), ui.available_width()));
             });
             header.col(|ui| {
                 let text = RichText::new("Filename")
@@ -35,6 +40,14 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                 ui.add(Separator::grow(Separator::default(), ui.available_width()));
             });
             header.col(|ui| {
+                let text = RichText::new("Action on save")
+                    .color(HEADING_COLOR)
+                    .strong()
+                    .italics();
+                ui.heading(text);
+                ui.add(Separator::grow(Separator::default(), ui.available_width()));
+            });
+            header.col(|ui| {
                 let text = RichText::new("Toggle")
                     .color(HEADING_COLOR)
                     .strong()
@@ -44,32 +57,21 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
             });
         })
         .body(|mut body| {
-            for fdl in interface.files.iter_mut() {
+            let mut to_display = interface
+                .files
+                .iter()
+                .filter(|f| {
+                    f.file
+                        .name_on_disk
+                        .to_lowercase()
+                        .contains(&interface.search)
+                })
+                .map(|f| f.to_owned())
+                .collect::<Vec<_>>();
+            for fdl in to_display.iter_mut() {
                 let file = &fdl.file;
                 let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
-                if !complete && !fdl.initiated {
-                    let rt = Runtime::new().unwrap();
-                    let file = file.clone();
-                    let tx_error = interface.popups.error.channel.0.clone();
-                    std::thread::spawn(move || {
-                        rt.block_on(async move {
-                            loop {
-                                match file.single_thread_dl().await {
-                                    Ok(_) => break,
-                                    Err(e) => {
-                                        tx_error.send(e.to_string()).unwrap();
-                                    }
-                                }
-                            }
-                        })
-                    });
-                    let rx = &interface.popups.error.channel.1;
-                    if let Ok(val) = rx.try_recv() {
-                        interface.popups.error.value = val;
-                        interface.popups.error.show = true;
-                    }
-                    fdl.initiated = true;
-                }
+
                 body.row(30.0, |mut row| {
                     row.col(|ui| {
                         ui.add(Checkbox::without_text(&mut fdl.selected));
@@ -79,43 +81,86 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                     });
                     row.col(|ui| progress_bar(file, PB_COLOR, ui, ctx));
                     row.col(|ui| {
-                        action_button((HEADING_COLOR, PB_COLOR), file, ui, complete);
+                        match fdl.action_on_save {
+                            Actions::Reboot if complete => {
+                                let _ = Command::new("reboot").exec();
+                            }
+                            Actions::Shutdown if complete => {
+                                let _ = Command::new("reboot").exec();
+                            }
+                            _ => {}
+                        }
+                        if !complete {
+                            egui::ComboBox::from_label("")
+                                .selected_text(format!("{:?}", fdl.action_on_save))
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut fdl.action_on_save,
+                                        Actions::None,
+                                        "None",
+                                    );
+                                    ui.selectable_value(
+                                        &mut fdl.action_on_save,
+                                        Actions::Shutdown,
+                                        "Shutdown",
+                                    );
+                                    ui.selectable_value(
+                                        &mut fdl.action_on_save,
+                                        Actions::Reboot,
+                                        "Reboot",
+                                    );
+                                });
+                        } else {
+                            egui::ComboBox::from_label("")
+                                .selected_text(format!("{:?}", fdl.action_on_save))
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut fdl.action_on_save,
+                                        Actions::None,
+                                        "None",
+                                    );
+                                });
+                        }
+                    });
+                    row.col(|ui| {
+                        action_button(PB_COLOR, file, ui, complete);
                     });
                 });
             }
         });
 }
 
-fn action_button(colors: (Color32, Color32), file: &File2Dl, ui: &mut Ui, complete: bool) {
+fn action_button(color: Color32, file: &File2Dl, ui: &mut Ui, complete: bool) {
     let text = {
         let running = file.running.load(std::sync::atomic::Ordering::Relaxed);
         if !running {
-            eframe::egui::RichText::new(egui_phosphor::regular::PLAY).size(20.0)
+            eframe::egui::RichText::new(egui_phosphor::fill::PLAY).size(20.0)
         } else {
-            eframe::egui::RichText::new(egui_phosphor::regular::PAUSE).size(25.0)
+            eframe::egui::RichText::new(egui_phosphor::fill::PAUSE).size(20.0)
         }
     };
     let but = {
-        if !complete && file.url.range_support {
-            Button::new(text.color(colors.0)).frame(false)
+        if !complete {
+            let color = Color32::from_hex("#0065b1").expect("Bad Hex");
+            Button::new(text.color(color)).frame(false)
         } else {
             Button::new(text).frame(false)
         }
     };
     let res = ui.add(but);
 
-    if res.hovered() && !complete && file.url.range_support {
+    if res.hovered() && !complete {
         ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand)
     }
     if res.clicked() && !complete {
         file.switch_status();
     }
     if res.hovered() && !file.url.range_support {
-        let label = RichText::new("File doesn't support resumption").color(colors.1);
+        let label = RichText::new("File doesn't support resumption").color(color);
         res.show_tooltip_text(label);
     }
     if res.hovered() && complete {
-        let label = RichText::new("File is complete").color(colors.1);
+        let label = RichText::new("File is complete").color(color);
         res.show_tooltip_text(label);
     }
 }
@@ -124,25 +169,26 @@ fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context) {
     let size = file.size_on_disk.load(std::sync::atomic::Ordering::Relaxed) as f32;
     let total_size = file.url.content_length as f32;
     let percentage = size / total_size;
-    let mut pb = ProgressBar::new(percentage)
-        .desired_width(250.0)
-        .text_center(format!("{}%", (percentage * 100.0) as i32));
-    pb.animate = true;
-    let res = ui.add(pb);
-    if res.hovered() {
-        let text =
-            RichText::new((format!("{}%", (percentage * 100.0) as i32)).to_string()).color(color);
-
-        res.show_tooltip_text(text);
-    };
-    ctx.request_repaint_of(res.ctx.viewport_id());
+    ui.scope(|ui| {
+        ui.visuals_mut().extreme_bg_color = Color32::from_hex("#3c3c3c").expect("Bad Hex");
+        let mut pb = ProgressBar::new(percentage)
+            .desired_width(250.0)
+            .text_center(format!("{}%", (percentage * 100.0) as i32));
+        pb.is_indeterminate = file.running.load(std::sync::atomic::Ordering::Relaxed);
+        let res = ui.add(pb);
+        if res.hovered() {
+            let size_mbs = size / (1024.0 * 1024.0);
+            let total_size_mbs = file.url.content_length as f32 / (1024.0 * 1024.0);
+            let text =
+                RichText::new(format!("{:.3}/{:.3} Mbs", size_mbs, total_size_mbs)).color(color);
+            res.show_tooltip_text(text);
+        };
+        ctx.request_repaint_of(res.ctx.viewport_id());
+    });
 }
 
 fn file_name(file: &File2Dl, ui: &mut Ui) {
     let text = RichText::new(&file.name_on_disk).strong().size(15.0);
-    let label = Label::new(text.clone()).wrap();
-    let res = ui.add(label);
-    if res.hovered() {
-        res.show_tooltip_text(text);
-    }
+    let label = Label::new(text.clone()).wrap_mode(egui::TextWrapMode::Truncate);
+    ui.add(label);
 }
