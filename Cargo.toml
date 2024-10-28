@@ -4,9 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-catppuccin-egui = { version = "5.3.0", default-features = false, features = ["egui28"] }
 content_disposition = "0.4.0"
-eframe = "0.28"
+eframe = { version = "0.28", features = ["default"] }
 egui-phosphor = {version = "0.6", features = ["fill"] }
 egui_extras = "0.28"
 futures = "0.3.31"

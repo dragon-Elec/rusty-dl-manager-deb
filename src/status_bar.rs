@@ -1,11 +1,13 @@
 use crate::MyApp;
-use eframe::egui::{menu, Align, Color32, Layout, RichText, TextEdit};
+use eframe::egui::{menu, Align, Color32, CursorIcon, Label, Layout, RichText, TextEdit};
 use std::fs::{read_dir, remove_file};
 
 pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
     menu::bar(ui, |ui| {
         let BAR_COLORS = Color32::from_hex("#a4b9ef").expect("Bad Hex");
         let text = RichText::new("Files").color(BAR_COLORS).strong().size(15.0);
+        ui.add_space(5.0);
+
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.menu_button(text, |ui| {
@@ -61,15 +63,21 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
             });
         });
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+            ui.add_space(5.0);
+
             let text =
                 eframe::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS).size(19.0);
-            let res = ui.label(text);
+            if ui.label(text).hovered() {
+                ui.output_mut(|o| o.cursor_icon = CursorIcon::Default)
+            }
+
             ui.scope(|ui| {
                 ui.visuals_mut().extreme_bg_color = Color32::from_hex("#3c3c3c").expect("Bad Hex");
-                ui.set_width(150.0);
-                ui.text_edit_singleline(&mut interface.search);
+                ui.set_width(250.0);
+                let single_line = TextEdit::singleline(&mut interface.search).hint_text("Filename");
+                ui.add(single_line);
             });
-        })
+        });
     });
 }
 

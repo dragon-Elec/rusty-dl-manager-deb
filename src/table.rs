@@ -2,46 +2,55 @@ use std::{os::unix::process::CommandExt, process::Command};
 
 use crate::{dl::file2dl::File2Dl, Actions, MyApp};
 use eframe::egui::{
-    self, Button, Checkbox, Color32, Context, CursorIcon, Label, RichText, Separator, Ui,
+    self, style::Spacing, Align, Button, Checkbox, Color32, ComboBox, Context, CursorIcon, Label,
+    Layout, Painter, Pos2, RichText, Sense, Separator, Stroke, Ui, Vec2,
 };
 use egui_extras::{Column, TableBuilder};
 use irox_egui_extras::progressbar::ProgressBar;
 pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
-    let HEADING_COLOR: Color32 = Color32::from_hex("#e28c8f").expect("Bad Hex");
+    let HEADING_COLOR: Color32 = Color32::from_hex("#a4b9ef").expect("Bad Hex");
     let PB_COLOR = Color32::from_hex("#a4b9f0").expect("Bad Hex");
+    ctx.request_repaint();
+    let available_width = ui.available_width();
     TableBuilder::new(ui)
         .auto_shrink(false)
         .striped(true)
-        .column(Column::auto().at_most(20.0))
-        .column(Column::auto().at_least(130.0))
-        .column(Column::auto().at_least(270.0))
-        .column(Column::remainder().at_most(150.0))
-        .column(Column::remainder().at_least(120.0))
-        .header(30.0, |mut header| {
+        .column(Column::exact(available_width * 0.02))
+        .column(Column::initial(available_width * 0.1))
+        .column(Column::initial(available_width * 0.455))
+        .column(Column::exact(available_width * 0.2))
+        .column(Column::initial(available_width * 0.225))
+        .header(20.0, |mut header| {
             header.col(|ui| {
                 ui.heading("");
             });
             header.col(|ui| {
                 let text = RichText::new("Filename").color(HEADING_COLOR).strong();
                 ui.heading(text);
-                ui.add(Separator::grow(Separator::default(), ui.available_width()));
+                ui.add(Separator::grow(
+                    Separator::default(),
+                    ctx.screen_rect().width(),
+                ));
             });
             header.col(|ui| {
                 let text = RichText::new("Progress").color(HEADING_COLOR).strong();
-                ui.heading(text);
-                ui.add(Separator::grow(Separator::default(), ui.available_width()));
+                ui.vertical_centered(|ui| {
+                    ui.heading(text);
+                });
             });
             header.col(|ui| {
                 let text = RichText::new("Action on save")
                     .color(HEADING_COLOR)
                     .strong();
-                ui.heading(text);
-                ui.add(Separator::grow(Separator::default(), ui.available_width()));
+                ui.vertical_centered(|ui| {
+                    ui.heading(text);
+                });
             });
             header.col(|ui| {
                 let text = RichText::new("Toggle").color(HEADING_COLOR).strong();
-                ui.heading(text);
-                ui.add(Separator::grow(Separator::default(), ui.available_width()));
+                ui.vertical_centered(|ui| {
+                    ui.heading(text);
+                });
             });
         })
         .body(|mut body| {
@@ -74,7 +83,7 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                     row.col(|ui| {
                         file_name(file, ui);
                     });
-                    row.col(|ui| progress_bar(file, PB_COLOR, ui, ctx));
+                    row.col(|ui| progress_bar(file, PB_COLOR, ui, ctx, available_width * 0.35));
                     row.col(|ui| {
                         match fdl.action_on_save {
                             Actions::Reboot if complete => {
@@ -85,37 +94,45 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                             }
                             _ => {}
                         }
-                        if !complete {
-                            egui::ComboBox::from_label("")
-                                .selected_text(format!("{:?}", fdl.action_on_save))
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut fdl.action_on_save,
-                                        Actions::None,
-                                        "None",
-                                    );
-                                    ui.selectable_value(
-                                        &mut fdl.action_on_save,
-                                        Actions::Shutdown,
-                                        "Shutdown",
-                                    );
-                                    ui.selectable_value(
-                                        &mut fdl.action_on_save,
-                                        Actions::Reboot,
-                                        "Reboot",
-                                    );
+                        ui.vertical_centered(|ui| {
+                            if !complete {
+                                ui.centered_and_justified(|ui| {
+                                    egui::ComboBox::from_label("")
+                                        .selected_text(format!("{:?}", fdl.action_on_save))
+                                        .width(available_width * 0.20)
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(
+                                                &mut fdl.action_on_save,
+                                                Actions::None,
+                                                "None",
+                                            );
+                                            ui.selectable_value(
+                                                &mut fdl.action_on_save,
+                                                Actions::Shutdown,
+                                                "Shutdown",
+                                            );
+                                            ui.selectable_value(
+                                                &mut fdl.action_on_save,
+                                                Actions::Reboot,
+                                                "Reboot",
+                                            );
+                                        });
                                 });
-                        } else {
-                            egui::ComboBox::from_label("")
-                                .selected_text(format!("{:?}", fdl.action_on_save))
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut fdl.action_on_save,
-                                        Actions::None,
-                                        "None",
-                                    );
+                            } else {
+                                ui.centered_and_justified(|ui| {
+                                    egui::ComboBox::from_label("")
+                                        .width(available_width * 0.20)
+                                        .selected_text(format!("{:?}", fdl.action_on_save))
+                                        .show_ui(ui, |ui| {
+                                            ui.selectable_value(
+                                                &mut fdl.action_on_save,
+                                                Actions::None,
+                                                "None",
+                                            );
+                                        });
                                 });
-                        }
+                            }
+                        });
                     });
                     row.col(|ui| {
                         action_button(PB_COLOR, file, ui, complete);
@@ -142,43 +159,49 @@ fn action_button(color: Color32, file: &File2Dl, ui: &mut Ui, complete: bool) {
             Button::new(text).frame(false)
         }
     };
-    let res = ui.add(but);
-
-    if res.hovered() && !complete {
-        ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand)
-    }
-    if res.clicked() && !complete {
-        file.switch_status();
-    }
-    if res.hovered() && !file.url.range_support {
-        let label = RichText::new("File doesn't support resumption").color(color);
-        res.show_tooltip_text(label);
-    }
-    if res.hovered() && complete {
-        let label = RichText::new("File is complete").color(color);
-        res.show_tooltip_text(label);
-    }
+    ui.vertical_centered(|ui| {
+        let res = ui.add(but);
+        if res.hovered() && !complete {
+            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand)
+        }
+        if res.clicked() && !complete {
+            file.switch_status();
+        }
+        if res.hovered() && !file.url.range_support {
+            let label = RichText::new("File doesn't support resumption").color(color);
+            res.show_tooltip_text(label);
+        }
+        if res.hovered() && complete {
+            let label = RichText::new("File is complete").color(color);
+            res.show_tooltip_text(label);
+        }
+    });
 }
-
-fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context) {
+fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context, fixed_size: f32) {
     let size = file.size_on_disk.load(std::sync::atomic::Ordering::Relaxed) as f32;
     let total_size = file.url.content_length as f32;
     let percentage = size / total_size;
-    ui.scope(|ui| {
-        ui.visuals_mut().extreme_bg_color = Color32::from_hex("#3c3c3c").expect("Bad Hex");
-        let mut pb = ProgressBar::new(percentage)
-            .desired_width(250.0)
-            .text_center(format!("{}%", (percentage * 100.0) as i32));
-        pb.is_indeterminate = file.running.load(std::sync::atomic::Ordering::Relaxed);
-        let res = ui.add(pb);
-        if res.hovered() {
-            let size_mbs = size / (1024.0 * 1024.0);
-            let total_size_mbs = file.url.content_length as f32 / (1024.0 * 1024.0);
-            let text =
-                RichText::new(format!("{:.3}/{:.3} Mbs", size_mbs, total_size_mbs)).color(color);
-            res.show_tooltip_text(text);
-        };
-        ctx.request_repaint_of(res.ctx.viewport_id());
+    ui.centered_and_justified(|ui| {
+        ui.scope(|ui| {
+            ui.visuals_mut().extreme_bg_color = Color32::from_hex("#3c3c3c").expect("Bad Hex");
+            ui.visuals_mut().selection.bg_fill = Color32::from_hex("#a4b9ef").expect("Bad Hex");
+            ui.visuals_mut().override_text_color =
+                Some(Color32::from_hex("#1e1e28").expect("Bad Hex"));
+            let mut pb = ProgressBar::new(percentage)
+                .desired_width(fixed_size)
+                .desired_height(ui.available_height())
+                .text_center(format!("{}%", (percentage * 100.0) as i32));
+            pb.is_indeterminate = file.running.load(std::sync::atomic::Ordering::Relaxed);
+            let res = ui.add(pb);
+            if res.hovered() {
+                let size_mbs = size / (1024.0 * 1024.0);
+                let total_size_mbs = file.url.content_length as f32 / (1024.0 * 1024.0);
+                let text = RichText::new(format!("{:.3}/{:.3} Mbs", size_mbs, total_size_mbs))
+                    .color(color);
+                res.show_tooltip_text(text);
+            };
+            ctx.request_repaint_of(res.ctx.viewport_id());
+        });
     });
 }
 

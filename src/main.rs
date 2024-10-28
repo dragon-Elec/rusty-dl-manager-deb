@@ -1,7 +1,7 @@
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 use dl::file2dl::File2Dl;
-use eframe::egui::{self, Color32, Separator};
+use eframe::egui::{self, Color32, Id};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use extern_windows::{show_confirm_window, show_error_window, show_input_window};
 use status_bar::init_menu_bar;
@@ -76,7 +76,6 @@ struct MyApp {
     popups: PopUps,
     temp_action: Actions,
     search: String,
-    select_all: bool,
 }
 impl Default for MyApp {
     fn default() -> Self {
@@ -100,14 +99,12 @@ impl Default for MyApp {
                     },
                     temp_action: Actions::default(),
                     search: String::default(),
-                    select_all: false,
                 };
             }
         };
         let files = files
             .iter()
-            .enumerate()
-            .map(|(idx, f)| {
+            .map(|f| {
                 let file = f.to_owned();
                 FDl {
                     file,
@@ -123,7 +120,6 @@ impl Default for MyApp {
             popups: PopUps::default(),
             temp_action: Actions::default(),
             search: String::default(),
-            select_all: false,
         }
     }
 }
@@ -144,10 +140,19 @@ pub enum Actions {
 }
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, Id::new("My panel"))
+            .exact_height(30.0)
+            .frame(egui::Frame::none().fill(Color32::from_hex("#111017").expect("Bad Hex")))
+            .show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    ui.add_space(2.0);
+                });
+                init_menu_bar(self, ui);
+            });
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(TokyoNight.bg_secondary_color_visuals())
+                    .fill(Color32::from_hex("#1b1824").expect("Bad Hex"))
                     .inner_margin(TokyoNight.margin_style())
                     .stroke(egui::Stroke::new(
                         1.0,
@@ -155,8 +160,6 @@ impl eframe::App for MyApp {
                     )),
             )
             .show(ctx, |ui| {
-                init_menu_bar(self, ui);
-                ui.add(Separator::grow(Separator::default(), ui.available_width()));
                 run_downloads(self);
                 lay_table(self, ui, ctx);
                 if self.popups.confirm.show {
@@ -189,12 +192,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Download Manager",
         options,
-        Box::new(|cc| {
-            let mut fonts = egui::FontDefinitions::default();
-            egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
-            cc.egui_ctx.set_fonts(fonts);
-            Ok(Box::new(MyApp::default()))
-        }),
+        Box::new(|cc| Ok(Box::new(MyApp::new(cc)))),
     )
 }
 
@@ -225,5 +223,43 @@ fn run_downloads(interface: &mut MyApp) {
             }
             fdl.initiated = true;
         }
+    }
+}
+
+fn setup_custom_fonts(ctx: &egui::Context) {
+    // Start with the default font definitions, including `egui_phosphor`.
+    let mut fonts = egui::FontDefinitions::default();
+
+    // Add `JetBrainsMono` as the main font.
+    fonts.font_data.insert(
+        "my_font".to_owned(),
+        egui::FontData::from_static(include_bytes!("../JetBrainsMono-Regular.ttf")),
+    );
+
+    // Insert `JetBrainsMono` with the highest priority for proportional text.
+    fonts
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default()
+        .insert(0, "my_font".to_owned());
+
+    // Also use `JetBrainsMono` as the monospace font.
+    fonts
+        .families
+        .entry(egui::FontFamily::Monospace)
+        .or_default()
+        .insert(0, "my_font".to_owned());
+
+    // Keep `egui_phosphor` icons available by re-adding them to fonts.
+    egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+
+    // Apply the modified font definitions.
+    ctx.set_fonts(fonts);
+}
+
+impl MyApp {
+    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        setup_custom_fonts(&cc.egui_ctx);
+        MyApp::default()
     }
 }
