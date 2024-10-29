@@ -1,4 +1,4 @@
-use std::{fmt::format, os::unix::process::CommandExt, process::Command};
+use std::{os::unix::process::CommandExt, process::Command};
 
 use crate::{
     colors::{CYAN, DARK_INNER, GRAY},

@@ -1,6 +1,6 @@
-use eframe::egui::{self, Align, Align2, Button, Color32, Pos2, Vec2};
+use eframe::egui::{self, Align2, Button, Color32, Pos2, Vec2};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
-use egui_plot::{Line, PlotPoint, PlotPoints};
+use egui_plot::{Legend, Line};
 
 use crate::{
     colors::{CYAN, DARKER_PURPLE},
@@ -207,7 +207,6 @@ pub fn show_confirm_window(
 }
 
 pub fn show_plot_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
-    ctx.request_repaint();
     let window_size = egui::vec2(
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.0,
@@ -237,7 +236,9 @@ pub fn show_plot_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                     .allow_scroll(false)
                     .height(ui.available_height() - 40.0)
                     .width(ui.available_width())
+                    .show_x(false)
                     .show_y(false)
+                    .legend(Legend::default())
                     .show(ui, |plot_ui| {
                         let points = interface
                             .bandwidth
@@ -246,7 +247,6 @@ pub fn show_plot_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                             .enumerate()
                             .map(|(i, &y)| [i as f64, y as f64 / (1024.0 * 1024.0)])
                             .collect::<Vec<[f64; 2]>>();
-                        let points = PlotPoints::new(points);
                         plot_ui.line(Line::new(points).name("Total Bandwidth").color(*CYAN));
                     });
                 if ui.button("Close").clicked() {

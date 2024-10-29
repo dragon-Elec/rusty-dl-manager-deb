@@ -1,7 +1,4 @@
-use crate::{
-    colors::{CYAN, GRAY},
-    MyApp,
-};
+use crate::{colors::CYAN, MyApp};
 use eframe::egui::{menu, Align, Color32, CursorIcon, Layout, RichText, TextEdit};
 use std::fs::{read_dir, remove_file};
 

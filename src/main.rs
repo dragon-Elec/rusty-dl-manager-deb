@@ -1,8 +1,7 @@
 use colors::{CYAN, DARKER_PURPLE, DARK_INNER, GREEN, PURPLE, RED};
 use dl::file2dl::File2Dl;
-use eframe::egui::{self, Button, Color32, Id, Label, Layout, RichText};
+use eframe::egui::{self, Button, Color32, Id, Label, Layout};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
-use egui_plot::{Arrows, Legend, Line, PlotPoint, PlotPoints};
 use extern_windows::{show_confirm_window, show_error_window, show_input_window, show_plot_window};
 use status_bar::init_menu_bar;
 use std::{
@@ -311,33 +310,27 @@ fn run_downloads(interface: &mut MyApp) {
 }
 
 fn setup_custom_fonts(ctx: &egui::Context) {
-    // Start with the default font definitions, including `egui_phosphor`.
     let mut fonts = egui::FontDefinitions::default();
 
-    // Add `JetBrainsMono` as the main font.
     fonts.font_data.insert(
         "my_font".to_owned(),
         egui::FontData::from_static(include_bytes!("../JetBrainsMono-Regular.ttf")),
     );
 
-    // Insert `JetBrainsMono` with the highest priority for proportional text.
     fonts
         .families
         .entry(egui::FontFamily::Proportional)
         .or_default()
         .insert(0, "my_font".to_owned());
 
-    // Also use `JetBrainsMono` as the monospace font.
     fonts
         .families
         .entry(egui::FontFamily::Monospace)
         .or_default()
         .insert(0, "my_font".to_owned());
 
-    // Keep `egui_phosphor` icons available by re-adding them to fonts.
     egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
-    // Apply the modified font definitions.
     ctx.set_fonts(fonts);
 }
 
@@ -386,14 +379,11 @@ fn set_total_bandwidth(interface: &mut MyApp) {
     update_bandwidth_history(interface);
 }
 fn update_bandwidth_history(interface: &mut MyApp) {
-    // Store the current bandwidth for plotting
     interface
         .bandwidth
         .history
         .push(interface.bandwidth.total_bandwidth);
-    // Limit the history size to avoid excessive memory use
     if interface.bandwidth.history.len() > 100 {
-        // Keep the last 100 values
         interface.bandwidth.history.remove(0);
     }
 }
