@@ -5,11 +5,9 @@ use super::{
 };
 use futures::StreamExt;
 use reqwest::{header::RANGE, Client, ClientBuilder, Error, Response};
-use std::sync::atomic::Ordering::Relaxed;
 use std::{
     fs::{create_dir, metadata, read_dir, File, OpenOptions},
     io::{Read, Write},
-    os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicUsize},
@@ -17,7 +15,8 @@ use std::{
     },
     time::Duration,
 };
-use tokio::time::Instant;
+use std::{os::unix::fs::MetadataExt, sync::atomic::Ordering::Relaxed};
+use tokio::time::{sleep, Instant};
 
 #[derive(Debug, Default, Clone)]
 pub struct File2Dl {
@@ -55,10 +54,9 @@ impl File2Dl {
         let status = self.running.load(Relaxed);
         self.running.store(!status, Relaxed);
     }
-    pub async fn single_thread_dl(&self) -> Result<(), File2DlError> {
-        let client = ClientBuilder::new()
-            .timeout(Duration::from_secs(7))
-            .build()?;
+    pub async fn single_thread_dl(&self, speed_in_mbs: f64) -> Result<(), File2DlError> {
+        let speed = (speed_in_mbs / (1024.0 * 1024.0)) as usize;
+        let client = ClientBuilder::new().build()?;
         //initialize the request based on the range support
         let res = init_res(self, &client).await?;
         //initialize metadata that will help in resume mechanism
@@ -92,16 +90,29 @@ impl File2Dl {
                 }
             }
         });
+        let mut accum = 0usize;
+        let mut init = Instant::now();
         loop {
-            if self.running.load(Relaxed) {
-                if let Some(packed_chunk) = stream.next().await {
+            if !self.running.load(Relaxed) {
+                sleep(Duration::from_secs(2)).await;
+                continue;
+            }
+            match stream.next().await {
+                Some(packed_chunk) => {
                     let chunk = packed_chunk?;
                     file.write_all(&chunk)?;
-                    self.size_on_disk
-                        .fetch_add(chunk.len(), std::sync::atomic::Ordering::Relaxed);
-                } else {
-                    break;
+                    self.size_on_disk.fetch_add(chunk.len(), Relaxed);
+                    if speed_in_mbs > 0.0 {
+                        if init.elapsed() <= Duration::from_secs(1) && accum >= (speed) as usize {
+                            let sleep_duration =
+                                Duration::from_secs(1).saturating_sub(init.elapsed());
+                            sleep(sleep_duration).await;
+                            accum = 0;
+                        }
+                        init = Instant::now();
+                    }
                 }
+                None => break,
             }
         }
         self.complete.store(true, Relaxed);

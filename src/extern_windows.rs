@@ -3,7 +3,7 @@ use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_plot::{Legend, Line};
 
 use crate::{
-    colors::{CYAN, DARKER_PURPLE},
+    colors::{CYAN, DARKER_PURPLE, DARK_INNER, RED},
     dl::file2dl::File2Dl,
     Actions, FDl, MyApp,
 };
@@ -34,74 +34,126 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                 ui.colored_label(*CYAN, "Add download");
             });
             ui.separator();
-            ui.colored_label(*CYAN, "URL:");
-            if !interface.popups.download.error.is_empty() {
-                ui.colored_label(Color32::RED, &interface.popups.download.error);
-            }
-            ui.text_edit_singleline(&mut interface.popups.download.link);
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    ui.colored_label(*CYAN, "Action on save:");
-                    egui::ComboBox::from_label("")
-                        .selected_text(format!("{:?}", &interface.temp_action))
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut interface.temp_action, Actions::None, "None");
-                            ui.selectable_value(
-                                &mut interface.temp_action,
-                                Actions::Shutdown,
-                                "Shutdown",
-                            );
-                            ui.selectable_value(
-                                &mut interface.temp_action,
-                                Actions::Reboot,
-                                "Reboot",
-                            );
-                        });
-                })
+            ui.vertical_centered(|ui| {
+                ui.colored_label(*CYAN, "URL:");
+                ui.text_edit_singleline(&mut interface.popups.download.link);
+                if !interface.popups.download.error.is_empty() {
+                    if interface.popups.download.error == "Initiating..." {
+                        ui.colored_label(*CYAN, &interface.popups.download.error);
+                    } else {
+                        ui.colored_label(*RED, &interface.popups.download.error);
+                    }
+                }
+
+                ui.colored_label(*CYAN, "speed in Mbs: (Will be ignored if empty)");
+                ui.text_edit_singleline(&mut interface.popups.download.speed);
+                ui.colored_label(*CYAN, "Action on save:");
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.visuals_mut().widgets.inactive.weak_bg_fill = *CYAN;
+                        ui.visuals_mut().widgets.open.weak_bg_fill = *CYAN;
+                        ui.visuals_mut().widgets.hovered.weak_bg_fill = *CYAN;
+                        ui.visuals_mut().widgets.active.weak_bg_fill = *CYAN;
+                        ui.visuals_mut().widgets.inactive.fg_stroke.color = *DARK_INNER;
+                        ui.visuals_mut().widgets.open.fg_stroke.color = *DARK_INNER;
+                        ui.visuals_mut().widgets.hovered.fg_stroke.color = *DARK_INNER;
+                        ui.visuals_mut().widgets.active.fg_stroke.color = *DARK_INNER;
+                        ui.visuals_mut().override_text_color = Some(*DARK_INNER);
+                        egui::ComboBox::from_label("")
+                            .width(350.0)
+                            .selected_text(format!("{:?}", &interface.temp_action))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut interface.temp_action,
+                                    Actions::None,
+                                    "None",
+                                );
+                                ui.selectable_value(
+                                    &mut interface.temp_action,
+                                    Actions::Shutdown,
+                                    "Shutdown",
+                                );
+                                ui.selectable_value(
+                                    &mut interface.temp_action,
+                                    Actions::Reboot,
+                                    "Reboot",
+                                );
+                            });
+                    })
+                });
             });
 
             ui.add_space(5f32);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Confirm").clicked() {
-                        let rt = tokio::runtime::Runtime::new().unwrap();
-                        let tx = interface.popups.download.error_channel.0.clone();
-                        let file_tx = interface.file_channel.0.clone();
-                        let link = interface.popups.download.link.clone();
-
-                        rt.block_on(async move {
-                            match File2Dl::new(&link, "Downloads").await {
-                                Ok(file) => file_tx.send(file).unwrap(),
-                                Err(e) => {
-                                    tx.send(e.to_string()).unwrap();
+                    if ui.button("Confirm").clicked()
+                        && interface.popups.download.temp_file.is_none()
+                    {
+                        let speed_string = &interface.popups.download.speed;
+                        if !speed_string.is_empty() {
+                            match speed_string.parse::<f64>() {
+                                Ok(_) => {}
+                                Err(_) => {
+                                    interface.popups.download.error =
+                                        String::from("Enter a valid number");
+                                    return;
                                 }
                             };
-                        });
-                        if let Ok(val) = interface.popups.download.error_channel.1.try_recv() {
-                            interface.popups.download.error = val;
-                            return;
                         }
-                        let file = match interface.file_channel.1.try_recv() {
-                            Ok(file) => file,
-                            Err(e) => {
-                                interface.popups.download.error = e.to_string();
+                        let rt = tokio::runtime::Runtime::new().unwrap();
+                        let tx = interface.popups.download.error_channel.0.clone();
+                        let file_tx = interface.popups.download.file_channel.0.clone();
+                        let link = interface.popups.download.link.clone();
+                        interface.popups.download.error = String::from("Initiating...");
+                        std::thread::spawn(move || {
+                            rt.block_on(async move {
+                                match File2Dl::new(&link, "Downloads").await {
+                                    Ok(file) => file_tx.send(file).unwrap(),
+                                    Err(e) => {
+                                        tx.send(e.to_string()).unwrap();
+                                    }
+                                };
+                            });
+                        });
+                    }
+                    if let Ok(err) = interface.popups.download.error_channel.1.try_recv() {
+                        interface.popups.download.error = err;
+                        return;
+                    }
+                    if let Ok(file) = interface.popups.download.file_channel.1.try_recv() {
+                        interface.popups.download.temp_file = Some(file);
+                    };
+                    if let Some(file) = interface.popups.download.temp_file.to_owned() {
+                        let speed_string = &interface.popups.download.speed;
+                        let speed = if !speed_string.is_empty() {
+                            0f64
+                        } else {
+                            speed_string.parse::<f64>().unwrap()
+                        };
+                        match speed_string.parse::<f64>() {
+                            Ok(_) => {}
+                            Err(_) => {
+                                interface.popups.download.error =
+                                    String::from("Enter a valid number");
                                 return;
                             }
                         };
-
                         file.switch_status();
                         let file = FDl {
+                            speed,
                             file,
+                            new: true,
                             initiated: false,
                             selected: false,
                             action_on_save: interface.temp_action.clone(),
                         };
-                        interface.temp_action = Actions::None;
-                        interface.files.push(file);
                         interface.popups.download.show = false;
                         interface.popups.download.error = String::default();
+                        interface.popups.download.temp_file = None;
+                        interface.temp_action = Actions::None;
+                        interface.files.push(file);
                     }
-                    ui.add_space(180.0);
+                    ui.add_space(223.0);
                     if ui.button("Cancel").clicked() {
                         interface.popups.download.show = false;
                         interface.popups.download.error = String::default();
@@ -232,7 +284,7 @@ pub fn show_plot_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
             ui.centered_and_justified(|ui| {
                 egui_plot::Plot::new("plot")
                     .allow_zoom(false)
-                    .allow_drag(false)
+                    .allow_drag(true)
                     .allow_scroll(false)
                     .height(ui.available_height() - 40.0)
                     .width(ui.available_width())

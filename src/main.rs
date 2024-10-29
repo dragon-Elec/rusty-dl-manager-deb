@@ -3,7 +3,8 @@ use dl::file2dl::File2Dl;
 use eframe::egui::{self, Button, Color32, Id, Label, Layout};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use extern_windows::{show_confirm_window, show_error_window, show_input_window, show_plot_window};
-use status_bar::init_menu_bar;
+use menu_bar::init_menu_bar;
+use status_bar::init_status_bar;
 use std::{
     net::TcpStream,
     sync::mpsc::{channel, Receiver, Sender},
@@ -16,6 +17,7 @@ use tokio::runtime::Runtime;
 mod colors;
 mod dl;
 mod extern_windows;
+mod menu_bar;
 mod status_bar;
 mod table;
 
@@ -59,6 +61,9 @@ impl Default for ErrorPopUp {
 #[derive(Debug)]
 struct DownloadPopUp {
     link: String,
+    speed: String,
+    temp_file: Option<File2Dl>,
+    file_channel: (Sender<File2Dl>, Receiver<File2Dl>),
     show: bool,
     error: String,
     error_channel: (Sender<String>, Receiver<String>),
@@ -67,6 +72,9 @@ impl Default for DownloadPopUp {
     fn default() -> Self {
         Self {
             link: String::default(),
+            speed: String::default(),
+            temp_file: None,
+            file_channel: channel(),
             show: bool::default(),
             error: String::default(),
             error_channel: channel(),
@@ -87,7 +95,6 @@ pub struct Bandwidth {
 }
 struct MyApp {
     files: Vec<FDl>,
-    file_channel: (Sender<File2Dl>, Receiver<File2Dl>),
     popups: PopUps,
     temp_action: Actions,
     search: String,
@@ -108,7 +115,6 @@ impl Default for MyApp {
                 let confirm = ConfirmPopUp::default();
                 return Self {
                     files: Vec::default(),
-                    file_channel: channel(),
                     popups: PopUps {
                         error,
                         download,
@@ -128,6 +134,8 @@ impl Default for MyApp {
                 let file = f.to_owned();
                 FDl {
                     file,
+                    speed: 0f64,
+                    new: false,
                     initiated: false,
                     selected: false,
                     action_on_save: Actions::default(),
@@ -136,7 +144,6 @@ impl Default for MyApp {
             .collect::<Vec<_>>();
         Self {
             files,
-            file_channel: channel(),
             popups: PopUps::default(),
             temp_action: Actions::default(),
             search: String::default(),
@@ -148,6 +155,8 @@ impl Default for MyApp {
 #[derive(Debug, Default, Clone)]
 struct FDl {
     file: File2Dl,
+    speed: f64,
+    new: bool,
     initiated: bool,
     selected: bool,
     action_on_save: Actions,
@@ -226,46 +235,13 @@ impl eframe::App for MyApp {
             .exact_height(40.0)
             .frame(egui::Frame::none().fill(*DARKER_PURPLE))
             .show(ctx, |ui| {
-                ui.with_layout(Layout::right_to_left(egui::Align::RIGHT), |ui| {
-                    ui.add_space(10.0);
-                    ui.horizontal_centered(|ui| {
-                        let text = {
-                            if self.connection.connected {
-                                eframe::egui::RichText::new(format!(
-                                    "Connected {}",
-                                    egui_phosphor::fill::GLOBE
-                                ))
-                                .size(17.0)
-                                .color(*GREEN)
-                            } else {
-                                eframe::egui::RichText::new(format!(
-                                    "Disconnected {}",
-                                    egui_phosphor::fill::GLOBE_X
-                                ))
-                                .size(17.0)
-                                .color(*RED)
-                            }
-                        };
-                        let label = Label::new(text).wrap_mode(egui::TextWrapMode::Truncate);
-                        ui.add(label);
-                    });
-                    ui.separator();
-                    ui.add_space(ui.available_width() - 35.0);
-                    ui.horizontal_centered(|ui| {
-                        let text = eframe::egui::RichText::new(egui_phosphor::fill::CHART_LINE_UP)
-                            .size(25.0)
-                            .color(*DARK_INNER);
-                        let butt = Button::new(text).fill(*CYAN).rounding(25.0);
-                        if ui.add(butt).clicked() {
-                            self.popups.plot.show = true;
-                        }
-                    });
-                });
+                init_status_bar(self, ui);
             });
     }
 }
 
 fn main() -> eframe::Result {
+    env_logger::init();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([190.0, 190.0]),
         centered: true,
@@ -283,15 +259,27 @@ fn run_downloads(interface: &mut MyApp) {
     for fdl in interface.files.iter_mut() {
         let file = &fdl.file;
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
-        if !complete && !fdl.initiated {
+        let new = fdl.new;
+        let speed = fdl.speed;
+        if !complete && !&fdl.initiated {
             let rt = Runtime::new().unwrap();
             let file = file.clone();
             let tx_error = interface.popups.error.channel.0.clone();
             std::thread::spawn(move || {
                 rt.block_on(async move {
-                    loop {
-                        match file.single_thread_dl().await {
-                            Ok(_) => break,
+                    if file.url.range_support {
+                        loop {
+                            match file.single_thread_dl(speed).await {
+                                Ok(_) => break,
+                                Err(e) => {
+                                    tx_error.send(e.to_string()).unwrap();
+                                }
+                            }
+                            sleep(Duration::from_secs(5));
+                        }
+                    } else if new {
+                        match file.single_thread_dl(speed).await {
+                            Ok(_) => {}
                             Err(e) => {
                                 tx_error.send(e.to_string()).unwrap();
                             }
@@ -299,12 +287,12 @@ fn run_downloads(interface: &mut MyApp) {
                     }
                 })
             });
-            let rx = &interface.popups.error.channel.1;
-            if let Ok(val) = rx.try_recv() {
-                interface.popups.error.value = val;
-                interface.popups.error.show = true;
-            }
+
             fdl.initiated = true;
+        }
+        if let Ok(err) = interface.popups.error.channel.1.try_recv() {
+            interface.popups.error.value = err;
+            interface.popups.error.show = true;
         }
     }
 }

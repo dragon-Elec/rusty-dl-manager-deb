@@ -6,13 +6,13 @@ use crate::{
     Actions, MyApp,
 };
 use eframe::egui::{
-    self, Button, Checkbox, Color32, Context, CursorIcon, Label, RichText, Separator, Ui,
+    self, Button, Checkbox, Context, CursorIcon, Label, Layout, RichText, Separator, Ui,
 };
 use egui_extras::{Column, TableBuilder};
 use irox_egui_extras::progressbar::ProgressBar;
 pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
-    ctx.request_repaint();
     let available_width = ui.available_width();
+    let mut select_size = 0f32;
     TableBuilder::new(ui)
         .auto_shrink(false)
         .striped(true)
@@ -24,11 +24,15 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
         .column(Column::initial(available_width * 0.1857))
         .header(20.0, |mut header| {
             header.col(|ui| {
+                select_size = ui.available_width();
                 ui.heading("");
             });
             header.col(|ui| {
                 let text = RichText::new("Filename").color(*CYAN).strong();
-                ui.heading(text);
+                ui.horizontal(|ui| {
+                    ui.add_space(ui.available_width() / 2.0 - (74.0 - select_size / 2.0));
+                    ui.heading(text);
+                });
                 ui.add(Separator::grow(
                     Separator::default(),
                     ctx.screen_rect().width(),
@@ -74,6 +78,7 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
             for fdl in to_display.iter_mut() {
                 let file = &fdl.file;
                 let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
+                let new = fdl.new;
                 body.row(30.0, |mut row| {
                     row.col(|ui| {
                         ui.vertical(|ui| {
@@ -95,7 +100,7 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                     row.col(|ui| {
                         file_name(file, ui);
                     });
-                    row.col(|ui| progress_bar(file, *CYAN, ui, ctx, available_width * 0.2));
+                    row.col(|ui| progress_bar(file, ui, ctx));
                     row.col(|ui| {
                         ui.vertical(|ui| {
                             ui.add_space(5.0);
@@ -177,14 +182,14 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                         });
                     });
                     row.col(|ui| {
-                        action_button(file, ui, complete);
+                        action_button(file, ui, complete, new);
                     });
                 });
             }
         });
 }
 
-fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool) {
+fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool, new: bool) {
     let text = {
         let running = file.running.load(std::sync::atomic::Ordering::Relaxed);
         if !running {
@@ -194,33 +199,43 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool) {
         }
     };
     let but = {
-        if !complete {
-            Button::new(text.color(*CYAN)).frame(false)
+        let button_text = if file.url.range_support || new {
+            if !complete {
+                text.color(*CYAN)
+            } else {
+                text
+            }
         } else {
-            Button::new(text).frame(false)
-        }
+            text
+        };
+
+        Button::new(button_text).frame(false)
     };
     ui.vertical(|ui| {
         ui.add_space(3.0);
         let res = ui.add_sized((ui.available_width(), ui.available_height() - 6.0), but);
         if res.hovered() && !complete {
-            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand)
+            if file.url.range_support {
+                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand)
+            } else if new {
+                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand)
+            } else {
+                let text = RichText::new("File does not support resumption").color(*CYAN);
+                res.show_tooltip_text(text);
+            }
         }
         if res.clicked() && !complete {
-            file.switch_status();
-        }
-        if res.hovered() && !file.url.range_support {
-            let label = RichText::new("File doesn't support resumption").color(*CYAN);
-            res.show_tooltip_text(label);
-        }
-        if res.hovered() && complete {
-            let label = RichText::new("File is complete").color(*CYAN);
-            res.show_tooltip_text(label);
+            if file.url.range_support {
+                file.switch_status();
+            } else if new {
+                file.switch_status();
+            }
         }
         ui.add_space(3.0);
     });
 }
-fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context, fixed_size: f32) {
+fn progress_bar(file: &File2Dl, ui: &mut Ui, ctx: &Context) {
+    ctx.request_repaint();
     let size = file.size_on_disk.load(std::sync::atomic::Ordering::Relaxed) as f32;
     let total_size = file.url.content_length as f32;
     let percentage = size / total_size;
@@ -237,13 +252,13 @@ fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context, fixe
             pb.is_indeterminate = file.running.load(std::sync::atomic::Ordering::Relaxed);
             let res = ui.add(pb);
             if res.hovered() {
+                ui.set_width(ui.available_width());
                 let size_mbs = size / (1024.0 * 1024.0);
                 let total_size_mbs = file.url.content_length as f32 / (1024.0 * 1024.0);
                 let text = RichText::new(format!("{:.3}/{:.3} Mbs", size_mbs, total_size_mbs))
-                    .color(color);
+                    .color(*CYAN);
                 res.show_tooltip_text(text);
             };
-            ctx.request_repaint_of(res.ctx.viewport_id());
         });
         ui.add_space(1.0);
     });
@@ -251,10 +266,10 @@ fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context, fixe
 
 fn file_name(file: &File2Dl, ui: &mut Ui) {
     let text = RichText::new(&file.name_on_disk).strong().size(15.0);
-    let label = Label::new(text).wrap_mode(egui::TextWrapMode::Truncate);
-    ui.vertical(|ui| {
-        ui.add_space(3.0);
-        ui.add_sized((ui.available_width(), ui.available_height() - 6.0), label);
-        ui.add_space(3.0);
+    let label = Label::new(text.clone()).wrap_mode(egui::TextWrapMode::Truncate);
+    ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
+        ui.horizontal_centered(|ui| {
+            ui.add(label);
+        })
     });
 }
