@@ -77,18 +77,18 @@ impl File2Dl {
             let mut inst = Instant::now();
             let mut last_size = tracking_clone.size_on_disk.load(Relaxed);
             loop {
-                if inst.elapsed() >= Duration::from_secs(1) && tracking_clone.running.load(Relaxed)
-                {
-                    let current_size = tracking_clone.size_on_disk.load(Relaxed);
-                    tracking_clone
-                        .bytes_per_sec
-                        .store(current_size - last_size, Relaxed);
-                    last_size = current_size;
+                if inst.elapsed() >= Duration::from_secs(1) {
+                    if tracking_clone.running.load(Relaxed) {
+                        let current_size = tracking_clone.size_on_disk.load(Relaxed);
+                        tracking_clone
+                            .bytes_per_sec
+                            .store(current_size - last_size, Relaxed);
+                        last_size = current_size;
+                    } else {
+                        tracking_clone.bytes_per_sec.store(0, Relaxed);
+                    }
+
                     inst = Instant::now()
-                } else {
-                    inst = Instant::now();
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                    tracking_clone.bytes_per_sec.store(0, Relaxed);
                 }
             }
         });
@@ -106,6 +106,7 @@ impl File2Dl {
         }
         self.complete.store(true, Relaxed);
         self.running.store(false, Relaxed);
+        self.bytes_per_sec.store(0, Relaxed);
         Ok(())
     }
     pub fn from(dir: &str) -> Result<Vec<File2Dl>, std::io::Error> {

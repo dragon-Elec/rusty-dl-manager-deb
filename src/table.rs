@@ -1,4 +1,4 @@
-use std::{os::unix::process::CommandExt, process::Command};
+use std::{fmt::format, os::unix::process::CommandExt, process::Command};
 
 use crate::{
     colors::{CYAN, DARK_INNER, GRAY},
@@ -17,10 +17,11 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
         .auto_shrink(false)
         .striped(true)
         .column(Column::exact(available_width * 0.02))
-        .column(Column::initial(available_width * 0.1))
-        .column(Column::initial(available_width * 0.455))
+        .column(Column::initial(available_width * 0.1857))
+        .column(Column::initial(available_width * 0.255))
+        .column(Column::initial(available_width * 0.15))
         .column(Column::exact(available_width * 0.2))
-        .column(Column::initial(available_width * 0.225))
+        .column(Column::initial(available_width * 0.1857))
         .header(20.0, |mut header| {
             header.col(|ui| {
                 ui.heading("");
@@ -35,6 +36,12 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
             });
             header.col(|ui| {
                 let text = RichText::new("Progress").color(*CYAN).strong();
+                ui.vertical_centered(|ui| {
+                    ui.heading(text);
+                });
+            });
+            header.col(|ui| {
+                let text = RichText::new("Speed").color(*CYAN).strong();
                 ui.vertical_centered(|ui| {
                     ui.heading(text);
                 });
@@ -65,19 +72,18 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                 .map(|f| f.to_owned())
                 .collect::<Vec<_>>();
             for fdl in to_display.iter_mut() {
-                println!(
-                    "{}",
-                    fdl.file
-                        .bytes_per_sec
-                        .load(std::sync::atomic::Ordering::Relaxed) as f64
-                        / (1024 * 1024) as f64
-                );
                 let file = &fdl.file;
                 let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
-
                 body.row(30.0, |mut row| {
                     row.col(|ui| {
-                        ui.add(Checkbox::without_text(&mut fdl.selected));
+                        ui.vertical(|ui| {
+                            ui.add_space(3.0);
+                            ui.add_sized(
+                                (ui.available_width(), ui.available_height() - 6.0),
+                                Checkbox::without_text(&mut fdl.selected),
+                            );
+                            ui.add_space(3.0);
+                        });
                         let file = interface
                             .files
                             .iter_mut()
@@ -89,7 +95,27 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                     row.col(|ui| {
                         file_name(file, ui);
                     });
-                    row.col(|ui| progress_bar(file, *CYAN, ui, ctx, available_width * 0.35));
+                    row.col(|ui| progress_bar(file, *CYAN, ui, ctx, available_width * 0.2));
+                    row.col(|ui| {
+                        ui.vertical(|ui| {
+                            ui.add_space(5.0);
+                            let text = RichText::new(format!(
+                                "{:.2} Mbs",
+                                file.bytes_per_sec
+                                    .load(std::sync::atomic::Ordering::Relaxed)
+                                    as f64
+                                    / (1024.0 * 1024.0)
+                            ))
+                            .size(15.0)
+                            .strong();
+                            let label = Label::new(text).wrap_mode(egui::TextWrapMode::Truncate);
+                            ui.add_sized(
+                                (ui.available_width(), ui.available_height() - 10.0),
+                                label,
+                            );
+                            ui.add_space(5.0);
+                        });
+                    });
                     row.col(|ui| {
                         match fdl.action_on_save {
                             Actions::Reboot if complete => {
@@ -114,7 +140,7 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                                 ui.centered_and_justified(|ui| {
                                     egui::ComboBox::from_label("")
                                         .selected_text(format!("{:?}", fdl.action_on_save))
-                                        .width(available_width * 0.20)
+                                        .width(available_width * 0.2)
                                         .show_ui(ui, |ui| {
                                             ui.selectable_value(
                                                 &mut fdl.action_on_save,
@@ -136,7 +162,8 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                             } else {
                                 ui.centered_and_justified(|ui| {
                                     egui::ComboBox::from_label("")
-                                        .width(available_width * 0.20)
+                                        .width(available_width * 0.2)
+                                        .height(ui.available_height() - 10.0)
                                         .selected_text(format!("{:?}", fdl.action_on_save))
                                         .show_ui(ui, |ui| {
                                             ui.selectable_value(
@@ -173,8 +200,9 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool) {
             Button::new(text).frame(false)
         }
     };
-    ui.vertical_centered(|ui| {
-        let res = ui.add(but);
+    ui.vertical(|ui| {
+        ui.add_space(3.0);
+        let res = ui.add_sized((ui.available_width(), ui.available_height() - 6.0), but);
         if res.hovered() && !complete {
             ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand)
         }
@@ -189,20 +217,22 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool) {
             let label = RichText::new("File is complete").color(*CYAN);
             res.show_tooltip_text(label);
         }
+        ui.add_space(3.0);
     });
 }
 fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context, fixed_size: f32) {
     let size = file.size_on_disk.load(std::sync::atomic::Ordering::Relaxed) as f32;
     let total_size = file.url.content_length as f32;
     let percentage = size / total_size;
-    ui.centered_and_justified(|ui| {
+    ui.vertical(|ui| {
+        ui.add_space(1.0);
         ui.scope(|ui| {
             ui.visuals_mut().extreme_bg_color = *GRAY;
             ui.visuals_mut().selection.bg_fill = *CYAN;
             ui.visuals_mut().override_text_color = Some(*DARK_INNER);
             let mut pb = ProgressBar::new(percentage)
-                .desired_width(fixed_size)
-                .desired_height(ui.available_height())
+                .desired_width(ui.available_width())
+                .desired_height(ui.available_height() - 2.0)
                 .text_center(format!("{}%", (percentage * 100.0) as i32));
             pb.is_indeterminate = file.running.load(std::sync::atomic::Ordering::Relaxed);
             let res = ui.add(pb);
@@ -215,11 +245,16 @@ fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context, fixe
             };
             ctx.request_repaint_of(res.ctx.viewport_id());
         });
+        ui.add_space(1.0);
     });
 }
 
 fn file_name(file: &File2Dl, ui: &mut Ui) {
     let text = RichText::new(&file.name_on_disk).strong().size(15.0);
-    let label = Label::new(text.clone()).wrap_mode(egui::TextWrapMode::Truncate);
-    ui.add(label);
+    let label = Label::new(text).wrap_mode(egui::TextWrapMode::Truncate);
+    ui.vertical(|ui| {
+        ui.add_space(3.0);
+        ui.add_sized((ui.available_width(), ui.available_height() - 6.0), label);
+        ui.add_space(3.0);
+    });
 }

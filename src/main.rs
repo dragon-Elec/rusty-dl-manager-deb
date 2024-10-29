@@ -1,10 +1,16 @@
-use colors::{DARKER_PURPLE, PURPLE};
+use colors::{CYAN, DARKER_PURPLE, DARK_INNER, GREEN, PURPLE, RED};
 use dl::file2dl::File2Dl;
-use eframe::egui::{self, Color32, Id};
+use eframe::egui::{self, Button, Color32, Id, Label, Layout, RichText};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
-use extern_windows::{show_confirm_window, show_error_window, show_input_window};
+use egui_plot::{Arrows, Legend, Line, PlotPoint, PlotPoints};
+use extern_windows::{show_confirm_window, show_error_window, show_input_window, show_plot_window};
 use status_bar::init_menu_bar;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::{
+    net::TcpStream,
+    sync::mpsc::{channel, Receiver, Sender},
+    thread::sleep,
+    time::Duration,
+};
 use table::lay_table;
 use tokio::runtime::Runtime;
 
@@ -13,6 +19,11 @@ mod dl;
 mod extern_windows;
 mod status_bar;
 mod table;
+
+#[derive(Debug, Default)]
+struct PLotPopUp {
+    show: bool,
+}
 
 struct ConfirmPopUp {
     text: String,
@@ -68,14 +79,21 @@ struct PopUps {
     download: DownloadPopUp,
     error: ErrorPopUp,
     confirm: ConfirmPopUp,
+    plot: PLotPopUp,
 }
-
+#[derive(Default)]
+pub struct Bandwidth {
+    total_bandwidth: usize,
+    history: Vec<usize>,
+}
 struct MyApp {
     files: Vec<FDl>,
     file_channel: (Sender<File2Dl>, Receiver<File2Dl>),
     popups: PopUps,
     temp_action: Actions,
     search: String,
+    connection: Connection,
+    bandwidth: Bandwidth,
 }
 impl Default for MyApp {
     fn default() -> Self {
@@ -96,9 +114,12 @@ impl Default for MyApp {
                         error,
                         download,
                         confirm,
+                        plot: PLotPopUp::default(),
                     },
                     temp_action: Actions::default(),
                     search: String::default(),
+                    connection: Connection::default(),
+                    bandwidth: Bandwidth::default(),
                 };
             }
         };
@@ -120,6 +141,8 @@ impl Default for MyApp {
             popups: PopUps::default(),
             temp_action: Actions::default(),
             search: String::default(),
+            connection: Connection::default(),
+            bandwidth: Bandwidth::default(),
         }
     }
 }
@@ -131,6 +154,21 @@ struct FDl {
     action_on_save: Actions,
 }
 
+#[derive(Debug)]
+struct Connection {
+    connected: bool,
+    initiated: bool,
+    channel: (Sender<bool>, Receiver<bool>),
+}
+impl Default for Connection {
+    fn default() -> Self {
+        Self {
+            channel: channel(),
+            connected: false,
+            initiated: false,
+        }
+    }
+}
 #[derive(Debug, Default, PartialEq, Clone)]
 pub enum Actions {
     #[default]
@@ -140,9 +178,32 @@ pub enum Actions {
 }
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, Id::new("My panel"))
+        set_total_bandwidth(self);
+        check_connection(self);
+        run_downloads(self);
+        if self.popups.plot.show {
+            show_plot_window(ctx, self);
+        }
+        if self.popups.confirm.show {
+            let task = (self.popups.confirm.task)();
+            show_confirm_window(
+                ctx,
+                self,
+                self.popups.confirm.color,
+                &self.popups.confirm.text.clone(),
+                task,
+            );
+        }
+        if self.popups.error.show {
+            show_error_window(ctx, self, &self.popups.error.value.clone());
+        };
+        if self.popups.download.show {
+            show_input_window(ctx, self);
+        }
+        egui::TopBottomPanel::top(Id::new("Top"))
             .exact_height(40.0)
             .frame(egui::Frame::none().fill(*DARKER_PURPLE))
+            .show_separator_line(false)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.add_space(7.0);
@@ -160,24 +221,47 @@ impl eframe::App for MyApp {
                     )),
             )
             .show(ctx, |ui| {
-                run_downloads(self);
                 lay_table(self, ui, ctx);
-                if self.popups.confirm.show {
-                    let task = (self.popups.confirm.task)();
-                    show_confirm_window(
-                        ctx,
-                        self,
-                        self.popups.confirm.color,
-                        &self.popups.confirm.text.clone(),
-                        task,
-                    );
-                }
-                if self.popups.error.show {
-                    show_error_window(ctx, self, &self.popups.error.value.clone());
-                };
-                if self.popups.download.show {
-                    show_input_window(ctx, self);
-                }
+            });
+        egui::TopBottomPanel::bottom(Id::new("Bottom"))
+            .exact_height(40.0)
+            .frame(egui::Frame::none().fill(*DARKER_PURPLE))
+            .show(ctx, |ui| {
+                ui.with_layout(Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                    ui.add_space(10.0);
+                    ui.horizontal_centered(|ui| {
+                        let text = {
+                            if self.connection.connected {
+                                eframe::egui::RichText::new(format!(
+                                    "Connected {}",
+                                    egui_phosphor::fill::GLOBE
+                                ))
+                                .size(17.0)
+                                .color(*GREEN)
+                            } else {
+                                eframe::egui::RichText::new(format!(
+                                    "Disconnected {}",
+                                    egui_phosphor::fill::GLOBE_X
+                                ))
+                                .size(17.0)
+                                .color(*RED)
+                            }
+                        };
+                        let label = Label::new(text).wrap_mode(egui::TextWrapMode::Truncate);
+                        ui.add(label);
+                    });
+                    ui.separator();
+                    ui.add_space(ui.available_width() - 35.0);
+                    ui.horizontal_centered(|ui| {
+                        let text = eframe::egui::RichText::new(egui_phosphor::fill::CHART_LINE_UP)
+                            .size(25.0)
+                            .color(*DARK_INNER);
+                        let butt = Button::new(text).fill(*CYAN).rounding(25.0);
+                        if ui.add(butt).clicked() {
+                            self.popups.plot.show = true;
+                        }
+                    });
+                });
             });
     }
 }
@@ -261,5 +345,55 @@ impl MyApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
         setup_custom_fonts(&cc.egui_ctx);
         MyApp::default()
+    }
+}
+
+fn check_connection(interface: &mut MyApp) {
+    if !interface.connection.initiated {
+        let tx = interface.connection.channel.0.clone();
+        std::thread::spawn(move || loop {
+            let is_connected = tcp_ping();
+            if let Err(e) = tx.send(is_connected) {
+                println!("Failed to send connection status: {}", e);
+            }
+            sleep(Duration::from_secs(5));
+        });
+        interface.connection.initiated = true;
+    }
+
+    while let Ok(val) = interface.connection.channel.1.try_recv() {
+        interface.connection.connected = val;
+    }
+}
+
+fn tcp_ping() -> bool {
+    let address = "8.8.8.8:53";
+    let timeout = Duration::from_secs(3);
+    TcpStream::connect_timeout(&address.parse().unwrap(), timeout).is_ok()
+}
+
+fn set_total_bandwidth(interface: &mut MyApp) {
+    let size: usize = interface
+        .files
+        .iter()
+        .map(|f| {
+            f.file
+                .bytes_per_sec
+                .load(std::sync::atomic::Ordering::Relaxed)
+        })
+        .sum();
+    interface.bandwidth.total_bandwidth = size;
+    update_bandwidth_history(interface);
+}
+fn update_bandwidth_history(interface: &mut MyApp) {
+    // Store the current bandwidth for plotting
+    interface
+        .bandwidth
+        .history
+        .push(interface.bandwidth.total_bandwidth);
+    // Limit the history size to avoid excessive memory use
+    if interface.bandwidth.history.len() > 100 {
+        // Keep the last 100 values
+        interface.bandwidth.history.remove(0);
     }
 }
