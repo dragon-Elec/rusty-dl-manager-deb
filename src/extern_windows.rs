@@ -1,6 +1,11 @@
 use eframe::egui::{self, Align2, Button, Color32, Vec2};
+use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 
-use crate::{dl::file2dl::File2Dl, Actions, FDl, MyApp};
+use crate::{
+    colors::{CYAN, DARKER_PURPLE},
+    dl::file2dl::File2Dl,
+    Actions, FDl, MyApp,
+};
 
 pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
     let window_size = egui::vec2(250.0, 200.0);
@@ -8,20 +13,29 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
         .default_size(window_size)
         .pivot(Align2::RIGHT_CENTER)
         .resizable(false)
+        .frame(
+            egui::Frame::default()
+                .fill(*DARKER_PURPLE)
+                .inner_margin(TokyoNight.margin_style())
+                .stroke(egui::Stroke::new(
+                    1.0,
+                    TokyoNight.bg_secondary_color_visuals(),
+                )),
+        )
         .title_bar(false)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.label(egui::RichText::new("Add Download").strong());
+                ui.colored_label(*CYAN, "Add download");
             });
             ui.separator();
-            ui.label("URL:");
+            ui.colored_label(*CYAN, "URL:");
             if !interface.popups.download.error.is_empty() {
                 ui.colored_label(Color32::RED, &interface.popups.download.error);
             }
             ui.text_edit_singleline(&mut interface.popups.download.link);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Action on save:");
+                    ui.colored_label(*CYAN, "Action on save:");
                     egui::ComboBox::from_label("")
                         .selected_text(format!("{:?}", &interface.temp_action))
                         .show_ui(ui, |ui| {
@@ -96,6 +110,15 @@ pub fn show_error_window(ctx: &eframe::egui::Context, interface: &mut MyApp, err
     egui::Window::new("Error Window")
         .pivot(Align2::RIGHT_CENTER)
         .default_size(window_size)
+        .frame(
+            egui::Frame::none()
+                .fill(*DARKER_PURPLE)
+                .inner_margin(TokyoNight.margin_style())
+                .stroke(egui::Stroke::new(
+                    1.0,
+                    TokyoNight.bg_secondary_color_visuals(),
+                )),
+        )
         .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
@@ -126,11 +149,20 @@ pub fn show_confirm_window(
     egui::Window::new("Confirm")
         .default_size(window_size)
         .pivot(Align2::RIGHT_CENTER)
+        .frame(
+            egui::Frame::none()
+                .fill(*DARKER_PURPLE)
+                .inner_margin(TokyoNight.margin_style())
+                .stroke(egui::Stroke::new(
+                    1.0,
+                    TokyoNight.bg_secondary_color_visuals(),
+                )),
+        )
         .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.label("Are u sure?");
+                ui.colored_label(*CYAN, "Are u sure?");
                 ui.label(egui::RichText::new(text).strong().color(color));
             });
             ui.separator();

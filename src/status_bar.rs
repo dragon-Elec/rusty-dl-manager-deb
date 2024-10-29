@@ -1,11 +1,13 @@
-use crate::MyApp;
-use eframe::egui::{menu, Align, Color32, CursorIcon, Label, Layout, RichText, TextEdit};
+use crate::{
+    colors::{CYAN, GRAY},
+    MyApp,
+};
+use eframe::egui::{menu, Align, Color32, CursorIcon, Layout, RichText, TextEdit};
 use std::fs::{read_dir, remove_file};
 
 pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
     menu::bar(ui, |ui| {
-        let BAR_COLORS = Color32::from_hex("#a4b9ef").expect("Bad Hex");
-        let text = RichText::new("Files").color(BAR_COLORS).strong().size(15.0);
+        let text = RichText::new("Files").color(*CYAN).strong().size(15.0);
         ui.add_space(5.0);
 
         ui.vertical(|ui| {
@@ -13,16 +15,13 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
                 ui.menu_button(text, |ui| {
                     file_button_content(interface, ui);
                 });
-                let text = RichText::new("Downloads")
-                    .color(BAR_COLORS)
-                    .strong()
-                    .size(15.0);
+                let text = RichText::new("Downloads").color(*CYAN).strong().size(15.0);
                 ui.menu_button(text, |ui| {
-                    let text = RichText::new("Add Download").color(BAR_COLORS).strong();
+                    let text = RichText::new("Add Download").color(*CYAN).strong();
                     if ui.button(text).clicked() {
                         interface.popups.download.show = true;
                     }
-                    let text = RichText::new("Resume all").color(BAR_COLORS).strong();
+                    let text = RichText::new("Resume all").color(*CYAN).strong();
                     if ui.button(text).clicked() {
                         for core in interface.files.iter_mut() {
                             core.file
@@ -30,7 +29,7 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
                                 .store(true, std::sync::atomic::Ordering::Relaxed);
                         }
                     }
-                    let text = RichText::new("Pause all").color(BAR_COLORS).strong();
+                    let text = RichText::new("Pause all").color(*CYAN).strong();
                     if ui.button(text).clicked() {
                         for core in interface.files.iter_mut() {
                             core.file
@@ -38,9 +37,7 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
                                 .store(false, std::sync::atomic::Ordering::Relaxed);
                         }
                     }
-                    let text = RichText::new("Delete all completed")
-                        .color(BAR_COLORS)
-                        .strong();
+                    let text = RichText::new("Delete all completed").color(*CYAN).strong();
                     if ui.button(text).clicked() {
                         interface.files.retain(|core| {
                             !core
@@ -49,9 +46,7 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
                                 .load(std::sync::atomic::Ordering::Relaxed)
                         });
                     }
-                    let text = RichText::new("Delete all incomplete")
-                        .color(BAR_COLORS)
-                        .strong();
+                    let text = RichText::new("Delete all incomplete").color(*CYAN).strong();
                     if ui.button(text).clicked() {
                         interface.files.retain(|core| {
                             core.file
@@ -67,13 +62,13 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
 
             let text = eframe::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS)
                 .size(19.0)
-                .color(Color32::from_hex("#a4b9f0").expect("Bad Hex"));
+                .color(*CYAN);
             if ui.label(text).hovered() {
                 ui.output_mut(|o| o.cursor_icon = CursorIcon::Default)
             }
 
             ui.scope(|ui| {
-                ui.visuals_mut().extreme_bg_color = Color32::from_hex("#a4b9f0").expect("Bad Hex");
+                ui.visuals_mut().extreme_bg_color = *CYAN;
                 ui.set_width(250.0);
                 let single_line = TextEdit::singleline(&mut interface.search).hint_text("Filename");
                 ui.add(single_line);
@@ -83,9 +78,8 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
 }
 
 fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
-    let BAR_COLORS = Color32::from_hex("#a4b9ef").expect("Bad Hex");
     let text = RichText::new("Remove selected from list")
-        .color(BAR_COLORS)
+        .color(*CYAN)
         .strong();
     if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::GREEN;
@@ -98,7 +92,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         interface.popups.confirm.text = String::from("This will remove files selected from list")
     }
     let text = RichText::new("Remove selected from disk")
-        .color(BAR_COLORS)
+        .color(*CYAN)
         .strong();
     if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::RED;
@@ -110,9 +104,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         interface.popups.confirm.show = true;
         interface.popups.confirm.text = String::from("This will remove selected files from disk")
     }
-    let text = RichText::new("Remove all from list")
-        .color(BAR_COLORS)
-        .strong();
+    let text = RichText::new("Remove all from list").color(*CYAN).strong();
     if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::GREEN;
         interface.popups.confirm.task = Box::new(|| {
@@ -123,9 +115,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         interface.popups.confirm.show = true;
         interface.popups.confirm.text = "This will not delete files from disk".to_string();
     }
-    let text = RichText::new("Remove all from disk")
-        .color(BAR_COLORS)
-        .strong();
+    let text = RichText::new("Remove all from disk").color(*CYAN).strong();
     if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::RED;
         interface.popups.confirm.task = Box::new(|| {

@@ -1,3 +1,11 @@
+use super::{
+    errors::{File2DlError, UrlError},
+    metadata::{init_metadata, MetaData},
+    url::Url,
+};
+use futures::StreamExt;
+use reqwest::{header::RANGE, Client, ClientBuilder, Error, Response};
+use std::sync::atomic::Ordering::Relaxed;
 use std::{
     fs::{create_dir, metadata, read_dir, File, OpenOptions},
     io::{Read, Write},
@@ -9,22 +17,15 @@ use std::{
     },
     time::Duration,
 };
-
-use super::{
-    errors::{File2DlError, UrlError},
-    metadata::{init_metadata, MetaData},
-    url::Url,
-};
-use futures::StreamExt;
-use reqwest::{header::RANGE, Client, ClientBuilder, Error, Response};
-use std::sync::atomic::Ordering::Relaxed;
+use tokio::time::Instant;
 
 #[derive(Debug, Default, Clone)]
 pub struct File2Dl {
     pub url: Url,
     pub name_on_disk: String,
-    pub dl_dir: String,
     pub size_on_disk: Arc<AtomicUsize>,
+    pub dl_dir: String,
+    pub bytes_per_sec: Arc<AtomicUsize>,
     pub running: Arc<AtomicBool>,
     pub complete: Arc<AtomicBool>,
 }
@@ -38,10 +39,12 @@ impl File2Dl {
         let name_on_disk = generate_name_on_disk(&url.filename, download_path)?;
         let running = Arc::new(AtomicBool::new(false));
         let complete = Arc::new(AtomicBool::new(false));
+        let bytes_per_sec = Arc::new(AtomicUsize::new(0));
         let dl_dir = download_path.to_string();
         Ok(Self {
             url,
             name_on_disk,
+            bytes_per_sec,
             dl_dir,
             size_on_disk: Arc::new(AtomicUsize::new(0)),
             running,
@@ -67,16 +70,39 @@ impl File2Dl {
             .create(true)
             .truncate(false)
             .open(full_path)?;
-        while let Some(packed_chunk) = stream.next().await {
-            let chunk = packed_chunk?;
+
+        let tracking_clone = self.clone();
+
+        tokio::task::spawn(async move {
+            let mut inst = Instant::now();
+            let mut last_size = tracking_clone.size_on_disk.load(Relaxed);
             loop {
-                if self.running.load(Relaxed) {
+                if inst.elapsed() >= Duration::from_secs(1) && tracking_clone.running.load(Relaxed)
+                {
+                    let current_size = tracking_clone.size_on_disk.load(Relaxed);
+                    tracking_clone
+                        .bytes_per_sec
+                        .store(current_size - last_size, Relaxed);
+                    last_size = current_size;
+                    inst = Instant::now()
+                } else {
+                    inst = Instant::now();
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    tracking_clone.bytes_per_sec.store(0, Relaxed);
+                }
+            }
+        });
+        loop {
+            if self.running.load(Relaxed) {
+                if let Some(packed_chunk) = stream.next().await {
+                    let chunk = packed_chunk?;
+                    file.write_all(&chunk)?;
+                    self.size_on_disk
+                        .fetch_add(chunk.len(), std::sync::atomic::Ordering::Relaxed);
+                } else {
                     break;
                 }
             }
-            file.write_all(&chunk)?;
-            self.size_on_disk
-                .fetch_add(chunk.len(), std::sync::atomic::Ordering::Relaxed);
         }
         self.complete.store(true, Relaxed);
         self.running.store(false, Relaxed);
@@ -115,6 +141,7 @@ impl File2Dl {
                     File2Dl {
                         url,
                         dl_dir: dir.to_string(),
+                        bytes_per_sec: Arc::new(AtomicUsize::new(0)),
                         name_on_disk,
                         size_on_disk: Arc::new(AtomicUsize::new(size_on_disk)),
                         running: Arc::new(AtomicBool::new(false)),

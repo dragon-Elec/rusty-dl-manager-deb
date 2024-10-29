@@ -1,15 +1,16 @@
 use std::{os::unix::process::CommandExt, process::Command};
 
-use crate::{dl::file2dl::File2Dl, Actions, MyApp};
+use crate::{
+    colors::{CYAN, DARK_INNER, GRAY},
+    dl::file2dl::File2Dl,
+    Actions, MyApp,
+};
 use eframe::egui::{
-    self, style::Spacing, Align, Button, Checkbox, Color32, ComboBox, Context, CursorIcon, Label,
-    Layout, Painter, Pos2, RichText, Sense, Separator, Stroke, Ui, Vec2,
+    self, Button, Checkbox, Color32, Context, CursorIcon, Label, RichText, Separator, Ui,
 };
 use egui_extras::{Column, TableBuilder};
 use irox_egui_extras::progressbar::ProgressBar;
 pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
-    let HEADING_COLOR: Color32 = Color32::from_hex("#a4b9ef").expect("Bad Hex");
-    let PB_COLOR = Color32::from_hex("#a4b9f0").expect("Bad Hex");
     ctx.request_repaint();
     let available_width = ui.available_width();
     TableBuilder::new(ui)
@@ -25,7 +26,7 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                 ui.heading("");
             });
             header.col(|ui| {
-                let text = RichText::new("Filename").color(HEADING_COLOR).strong();
+                let text = RichText::new("Filename").color(*CYAN).strong();
                 ui.heading(text);
                 ui.add(Separator::grow(
                     Separator::default(),
@@ -33,21 +34,19 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                 ));
             });
             header.col(|ui| {
-                let text = RichText::new("Progress").color(HEADING_COLOR).strong();
+                let text = RichText::new("Progress").color(*CYAN).strong();
                 ui.vertical_centered(|ui| {
                     ui.heading(text);
                 });
             });
             header.col(|ui| {
-                let text = RichText::new("Action on save")
-                    .color(HEADING_COLOR)
-                    .strong();
+                let text = RichText::new("Action on save").color(*CYAN).strong();
                 ui.vertical_centered(|ui| {
                     ui.heading(text);
                 });
             });
             header.col(|ui| {
-                let text = RichText::new("Toggle").color(HEADING_COLOR).strong();
+                let text = RichText::new("Toggle").color(*CYAN).strong();
                 ui.vertical_centered(|ui| {
                     ui.heading(text);
                 });
@@ -66,6 +65,13 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                 .map(|f| f.to_owned())
                 .collect::<Vec<_>>();
             for fdl in to_display.iter_mut() {
+                println!(
+                    "{}",
+                    fdl.file
+                        .bytes_per_sec
+                        .load(std::sync::atomic::Ordering::Relaxed) as f64
+                        / (1024 * 1024) as f64
+                );
                 let file = &fdl.file;
                 let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
 
@@ -83,7 +89,7 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                     row.col(|ui| {
                         file_name(file, ui);
                     });
-                    row.col(|ui| progress_bar(file, PB_COLOR, ui, ctx, available_width * 0.35));
+                    row.col(|ui| progress_bar(file, *CYAN, ui, ctx, available_width * 0.35));
                     row.col(|ui| {
                         match fdl.action_on_save {
                             Actions::Reboot if complete => {
@@ -95,16 +101,15 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                             _ => {}
                         }
                         ui.vertical_centered(|ui| {
-                            let inner_color = Color32::from_hex("#1e1e28").expect("Bad Hex");
-                            ui.visuals_mut().widgets.inactive.weak_bg_fill = PB_COLOR;
-                            ui.visuals_mut().widgets.open.weak_bg_fill = PB_COLOR;
-                            ui.visuals_mut().widgets.hovered.weak_bg_fill = PB_COLOR;
-                            ui.visuals_mut().widgets.active.weak_bg_fill = PB_COLOR;
-                            ui.visuals_mut().widgets.inactive.fg_stroke.color = inner_color;
-                            ui.visuals_mut().widgets.open.fg_stroke.color = inner_color;
-                            ui.visuals_mut().widgets.hovered.fg_stroke.color = inner_color;
-                            ui.visuals_mut().widgets.active.fg_stroke.color = inner_color;
-                            ui.visuals_mut().override_text_color = Some(inner_color);
+                            ui.visuals_mut().widgets.inactive.weak_bg_fill = *CYAN;
+                            ui.visuals_mut().widgets.open.weak_bg_fill = *CYAN;
+                            ui.visuals_mut().widgets.hovered.weak_bg_fill = *CYAN;
+                            ui.visuals_mut().widgets.active.weak_bg_fill = *CYAN;
+                            ui.visuals_mut().widgets.inactive.fg_stroke.color = *DARK_INNER;
+                            ui.visuals_mut().widgets.open.fg_stroke.color = *DARK_INNER;
+                            ui.visuals_mut().widgets.hovered.fg_stroke.color = *DARK_INNER;
+                            ui.visuals_mut().widgets.active.fg_stroke.color = *DARK_INNER;
+                            ui.visuals_mut().override_text_color = Some(*DARK_INNER);
                             if !complete {
                                 ui.centered_and_justified(|ui| {
                                     egui::ComboBox::from_label("")
@@ -145,14 +150,14 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                         });
                     });
                     row.col(|ui| {
-                        action_button(PB_COLOR, file, ui, complete);
+                        action_button(file, ui, complete);
                     });
                 });
             }
         });
 }
 
-fn action_button(color: Color32, file: &File2Dl, ui: &mut Ui, complete: bool) {
+fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool) {
     let text = {
         let running = file.running.load(std::sync::atomic::Ordering::Relaxed);
         if !running {
@@ -163,8 +168,7 @@ fn action_button(color: Color32, file: &File2Dl, ui: &mut Ui, complete: bool) {
     };
     let but = {
         if !complete {
-            let color = Color32::from_hex("#0065b1").expect("Bad Hex");
-            Button::new(text.color(color)).frame(false)
+            Button::new(text.color(*CYAN)).frame(false)
         } else {
             Button::new(text).frame(false)
         }
@@ -178,11 +182,11 @@ fn action_button(color: Color32, file: &File2Dl, ui: &mut Ui, complete: bool) {
             file.switch_status();
         }
         if res.hovered() && !file.url.range_support {
-            let label = RichText::new("File doesn't support resumption").color(color);
+            let label = RichText::new("File doesn't support resumption").color(*CYAN);
             res.show_tooltip_text(label);
         }
         if res.hovered() && complete {
-            let label = RichText::new("File is complete").color(color);
+            let label = RichText::new("File is complete").color(*CYAN);
             res.show_tooltip_text(label);
         }
     });
@@ -193,10 +197,9 @@ fn progress_bar(file: &File2Dl, color: Color32, ui: &mut Ui, ctx: &Context, fixe
     let percentage = size / total_size;
     ui.centered_and_justified(|ui| {
         ui.scope(|ui| {
-            ui.visuals_mut().extreme_bg_color = Color32::from_hex("#3c3c3c").expect("Bad Hex");
-            ui.visuals_mut().selection.bg_fill = Color32::from_hex("#a4b9ef").expect("Bad Hex");
-            ui.visuals_mut().override_text_color =
-                Some(Color32::from_hex("#1e1e28").expect("Bad Hex"));
+            ui.visuals_mut().extreme_bg_color = *GRAY;
+            ui.visuals_mut().selection.bg_fill = *CYAN;
+            ui.visuals_mut().override_text_color = Some(*DARK_INNER);
             let mut pb = ProgressBar::new(percentage)
                 .desired_width(fixed_size)
                 .desired_height(ui.available_height())

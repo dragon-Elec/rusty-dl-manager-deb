@@ -1,12 +1,14 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
-
+use colors::{DARKER_PURPLE, PURPLE};
 use dl::file2dl::File2Dl;
 use eframe::egui::{self, Color32, Id};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use extern_windows::{show_confirm_window, show_error_window, show_input_window};
 use status_bar::init_menu_bar;
+use std::sync::mpsc::{channel, Receiver, Sender};
 use table::lay_table;
 use tokio::runtime::Runtime;
+
+mod colors;
 mod dl;
 mod extern_windows;
 mod status_bar;
@@ -50,7 +52,6 @@ struct DownloadPopUp {
     show: bool,
     error: String,
     error_channel: (Sender<String>, Receiver<String>),
-    file_channel: (Sender<String>, Receiver<String>),
 }
 impl Default for DownloadPopUp {
     fn default() -> Self {
@@ -59,7 +60,6 @@ impl Default for DownloadPopUp {
             show: bool::default(),
             error: String::default(),
             error_channel: channel(),
-            file_channel: channel(),
         }
     }
 }
@@ -141,18 +141,18 @@ pub enum Actions {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, Id::new("My panel"))
-            .exact_height(30.0)
-            .frame(egui::Frame::none().fill(Color32::from_hex("#111017").expect("Bad Hex")))
+            .exact_height(40.0)
+            .frame(egui::Frame::none().fill(*DARKER_PURPLE))
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
-                    ui.add_space(2.0);
+                    ui.add_space(7.0);
                 });
                 init_menu_bar(self, ui);
             });
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(Color32::from_hex("#1b1824").expect("Bad Hex"))
+                    .fill(*PURPLE)
                     .inner_margin(TokyoNight.margin_style())
                     .stroke(egui::Stroke::new(
                         1.0,
