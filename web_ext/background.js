@@ -63,18 +63,18 @@ function getContentType(headers) {
  *
  * See the MDN manual on WebExtensions/webRequest.
  */
-function onHeadersReceived(details) {
+async function onHeadersReceived(details) {
   LOG('onHeadersReceived ', JSON.stringify(details));
-  var res = {};
-  var headers = details.responseHeaders;
+  let res = {};
+  let headers = details.responseHeaders;
 
   headers = headers.filter((header) => {
     return header.name.toLowerCase() != 'content-disposition';
   });
 
-  var redirect = isRedirect(details);
-  var url = details.url; // Get the URL here
-  var check = false;
+  const redirect = isRedirect(details);
+  const url = details.url; // Get the URL here
+  let check = false;
 
   // Check the file extension in the URL
   for (let i of exts) {
@@ -84,17 +84,19 @@ function onHeadersReceived(details) {
     }
   }
 
+  // Await isLocalHostOnline to get accurate status
+  const localHostOnline = await isLocalHostOnline();
+
   // If not a redirect and the URL has a disallowed extension
-  if (!redirect && check) {
-    browser.storage.local.set({ lastDownloadLink: url })
-      .then(() => {
-        console.log("Download link saved to storage.");
-      })
-      .catch((error) => {
-        console.error("Error saving download link:", error);
-      });
-    sendJsonRequest(url);
-    res.redirectUrl = 'data:javascript,';
+  if (!redirect && check && localHostOnline) {
+    try {
+      await browser.storage.local.set({ lastDownloadLink: url });
+      console.log("Download link saved to storage.");
+      sendJsonRequest(url);
+      res.redirectUrl = 'data:javascript,';
+    } catch (error) {
+      console.error("Error saving download link:", error);
+    }
   }
 
   res.responseHeaders = headers;
@@ -105,6 +107,7 @@ function onHeadersReceived(details) {
 
   return res;
 }
+
 
 
 browser.webRequest.onHeadersReceived.addListener(
@@ -127,5 +130,27 @@ function sendJsonRequest(url) {
   }).catch((error) => {
     console.error('Error:', error);
   });
+}
+
+async function isLocalHostOnline() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000); 
+
+  try {
+    const response = await fetch('http://127.0.0.1:3000', {
+      method: 'HEAD',
+      mode: 'no-cors',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response.ok || response.type === 'opaque';
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.error("Localhost check timed out");
+    } else {
+      console.error("Localhost check failed:", error);
+    }
+    return false;
+  }
 }
 

@@ -1,6 +1,6 @@
 use std::{fs::OpenOptions, io::Write};
 
-use poem::{handler, listener::TcpListener, post, web::Json, Route, Server};
+use poem::{handler, http::StatusCode, listener::TcpListener, post, web::Json, Route, Server};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -23,6 +23,12 @@ fn get_url(res: Json<Url>) -> String {
     text
 }
 
+// Handler for HEAD requests
+#[handler]
+fn handle_head() -> StatusCode {
+    StatusCode::OK
+}
+
 #[tokio::main]
 pub async fn init_server() -> Result<(), std::io::Error> {
     if std::env::var_os("RUST_LOG").is_none() {
@@ -30,7 +36,9 @@ pub async fn init_server() -> Result<(), std::io::Error> {
     }
     tracing_subscriber::fmt::init();
 
-    let app = Route::new().at("/", post(get_url));
+    // Add routes for both POST and HEAD methods
+    let app = Route::new().at("/", post(get_url).head(handle_head));
+
     Server::new(TcpListener::bind("0.0.0.0:3000"))
         .run(app)
         .await
