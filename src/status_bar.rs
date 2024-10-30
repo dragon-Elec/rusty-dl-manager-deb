@@ -4,22 +4,29 @@ pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
     ui.with_layout(Layout::right_to_left(egui::Align::RIGHT), |ui| {
         ui.add_space(10.0);
         ui.horizontal_centered(|ui| {
-            let text = {
-                if interface.connection.connected {
-                    eframe::egui::RichText::new(format!("Connected {}", egui_phosphor::fill::GLOBE))
-                        .size(17.0)
-                        .color(*GREEN)
-                } else {
-                    eframe::egui::RichText::new(format!(
-                        "Disconnected {}",
-                        egui_phosphor::fill::GLOBE_X
-                    ))
-                    .size(17.0)
-                    .color(*RED)
+            if interface.connection.connected {
+                let text = RichText::new(egui_phosphor::fill::GLOBE)
+                    .size(25.0)
+                    .color(*GREEN);
+                let label = Label::new(text).selectable(false);
+                let res = ui.add(label);
+                if res.hovered() {
+                    ui.output_mut(|o| o.cursor_icon = CursorIcon::Default);
+                    let text = RichText::new("Connected").color(*GREEN);
+                    res.show_tooltip_text(text);
                 }
-            };
-            let label = Label::new(text).wrap_mode(egui::TextWrapMode::Truncate);
-            ui.add(label);
+            } else {
+                let text = RichText::new(egui_phosphor::fill::GLOBE_X)
+                    .size(25.0)
+                    .color(*RED);
+                let label = Label::new(text).selectable(false);
+                let res = ui.add(label);
+                if res.hovered() {
+                    ui.output_mut(|o| o.cursor_icon = CursorIcon::Default);
+                    let text = RichText::new("Disconnected").color(*RED);
+                    res.show_tooltip_text(text);
+                }
+            }
         });
         ui.separator();
         ui.add_space(ui.available_width() - 80.0);
