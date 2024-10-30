@@ -1,4 +1,7 @@
-use crate::{colors::CYAN, MyApp};
+use crate::{
+    colors::{CYAN, GREEN, RED},
+    MyApp,
+};
 use eframe::egui::{menu, Align, Color32, CursorIcon, Layout, RichText, TextEdit};
 use std::fs::{read_dir, remove_file};
 
@@ -92,7 +95,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         .color(*CYAN)
         .strong();
     if ui.button(text).clicked() {
-        interface.popups.confirm.color = Color32::RED;
+        interface.popups.confirm.color = *RED;
         interface.popups.confirm.task = Box::new(|| {
             Box::new(move |app: &mut MyApp| {
                 remove_selected_from_disk(app);
@@ -103,7 +106,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
     }
     let text = RichText::new("Remove all from list").color(*CYAN).strong();
     if ui.button(text).clicked() {
-        interface.popups.confirm.color = Color32::GREEN;
+        interface.popups.confirm.color = *GREEN;
         interface.popups.confirm.task = Box::new(|| {
             Box::new(move |app: &mut MyApp| {
                 app.files.clear();
@@ -114,7 +117,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
     }
     let text = RichText::new("Remove all from disk").color(*CYAN).strong();
     if ui.button(text).clicked() {
-        interface.popups.confirm.color = Color32::RED;
+        interface.popups.confirm.color = *RED;
         interface.popups.confirm.task = Box::new(|| {
             Box::new(move |app: &mut MyApp| {
                 delete_all_files_from_disk(app);

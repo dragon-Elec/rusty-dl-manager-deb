@@ -22,6 +22,7 @@ use tokio::time::{sleep, Instant};
 pub struct File2Dl {
     pub url: Url,
     pub name_on_disk: String,
+    pub speed: Arc<AtomicUsize>,
     pub size_on_disk: Arc<AtomicUsize>,
     pub dl_dir: String,
     pub bytes_per_sec: Arc<AtomicUsize>,
@@ -39,10 +40,12 @@ impl File2Dl {
         let running = Arc::new(AtomicBool::new(false));
         let complete = Arc::new(AtomicBool::new(false));
         let bytes_per_sec = Arc::new(AtomicUsize::new(0));
+        let speed = Arc::new(AtomicUsize::new(0));
         let dl_dir = download_path.to_string();
         Ok(Self {
             url,
             name_on_disk,
+            speed,
             bytes_per_sec,
             dl_dir,
             size_on_disk: Arc::new(AtomicUsize::new(0)),
@@ -54,8 +57,7 @@ impl File2Dl {
         let status = self.running.load(Relaxed);
         self.running.store(!status, Relaxed);
     }
-    pub async fn single_thread_dl(&self, speed_in_mbs: f64) -> Result<(), File2DlError> {
-        let speed = (speed_in_mbs / (1024.0 * 1024.0)) as usize;
+    pub async fn single_thread_dl(&self) -> Result<(), File2DlError> {
         let client = ClientBuilder::new().build()?;
         //initialize the request based on the range support
         let res = init_res(self, &client).await?;
@@ -91,30 +93,37 @@ impl File2Dl {
             }
         });
         let mut accum = 0usize;
-        let mut init = Instant::now();
+        let mut start_time = Instant::now();
+
         loop {
             if !self.running.load(Relaxed) {
                 sleep(Duration::from_secs(2)).await;
                 continue;
             }
+
             match stream.next().await {
                 Some(packed_chunk) => {
                     let chunk = packed_chunk?;
                     file.write_all(&chunk)?;
                     self.size_on_disk.fetch_add(chunk.len(), Relaxed);
-                    if speed_in_mbs > 0.0 {
-                        if init.elapsed() <= Duration::from_secs(1) && accum >= (speed) as usize {
-                            let sleep_duration =
-                                Duration::from_secs(1).saturating_sub(init.elapsed());
-                            sleep(sleep_duration).await;
-                            accum = 0;
+
+                    accum += chunk.len();
+                    let speed_limit = self.speed.load(Relaxed);
+
+                    if speed_limit > 0 && accum >= speed_limit {
+                        let elapsed = start_time.elapsed();
+                        if elapsed < Duration::from_secs(1) {
+                            sleep(Duration::from_secs(1) - elapsed).await;
                         }
-                        init = Instant::now();
+
+                        accum = 0;
+                        start_time = Instant::now();
                     }
                 }
                 None => break,
             }
         }
+
         self.complete.store(true, Relaxed);
         self.running.store(false, Relaxed);
         self.bytes_per_sec.store(0, Relaxed);
@@ -153,6 +162,7 @@ impl File2Dl {
                     File2Dl {
                         url,
                         dl_dir: dir.to_string(),
+                        speed: Arc::new(AtomicUsize::new(m_data.speed)),
                         bytes_per_sec: Arc::new(AtomicUsize::new(0)),
                         name_on_disk,
                         size_on_disk: Arc::new(AtomicUsize::new(size_on_disk)),

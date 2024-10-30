@@ -114,15 +114,33 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                             .size(15.0)
                             .strong();
                             let label = Label::new(text).wrap_mode(egui::TextWrapMode::Truncate);
-                            ui.add_sized(
+                            let res = ui.add_sized(
                                 (ui.available_width(), ui.available_height() - 10.0),
                                 label,
                             );
+                            if res.hovered() {
+                                let text = RichText::new(format!(
+                                    "Limited to: {:.2}MBs",
+                                    (file.speed.load(std::sync::atomic::Ordering::Relaxed) as f64
+                                        / (1024 * 1024) as f64)
+                                ));
+                                res.show_tooltip_text(text);
+                            }
                             ui.add_space(5.0);
                         });
                     });
                     row.col(|ui| {
                         match fdl.action_on_save {
+                            Actions::Open if complete => {
+                                let path = format!("Downloads/{}", fdl.file.name_on_disk);
+                                match opener::open(path) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        interface.popups.error.value = e.to_string();
+                                        interface.popups.error.show = true;
+                                    }
+                                }
+                            }
                             Actions::Reboot if complete => {
                                 let _ = Command::new("reboot").exec();
                             }
@@ -151,6 +169,11 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                                                 &mut fdl.action_on_save,
                                                 Actions::None,
                                                 "None",
+                                            );
+                                            ui.selectable_value(
+                                                &mut fdl.action_on_save,
+                                                Actions::Open,
+                                                "Open",
                                             );
                                             ui.selectable_value(
                                                 &mut fdl.action_on_save,
@@ -227,7 +250,8 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool, new: bool) {
         if res.clicked() && !complete {
             if file.url.range_support {
                 file.switch_status();
-            } else if new {
+            }
+            if new {
                 file.switch_status();
             }
         }

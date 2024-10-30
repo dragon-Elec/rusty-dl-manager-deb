@@ -1,8 +1,11 @@
 use colors::{CYAN, DARKER_PURPLE, DARK_INNER, GREEN, PURPLE, RED};
-use dl::file2dl::File2Dl;
+use dl::{errors, file2dl::File2Dl};
 use eframe::egui::{self, Button, Color32, Id, Label, Layout};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
-use extern_windows::{show_confirm_window, show_error_window, show_input_window, show_plot_window};
+use extern_windows::{
+    show_confirm_window, show_error_window, show_input_window, show_modify_speed_window,
+    show_plot_window,
+};
 use menu_bar::init_menu_bar;
 use status_bar::init_status_bar;
 use std::{
@@ -41,6 +44,13 @@ impl Default for ConfirmPopUp {
             task: Box::new(|| Box::new(|_app: &mut MyApp| {})),
         }
     }
+}
+
+#[derive(Default)]
+struct EditSpeedPopUp {
+    show: bool,
+    error: String,
+    temp_val: String,
 }
 
 #[derive(Debug)]
@@ -87,6 +97,7 @@ struct PopUps {
     error: ErrorPopUp,
     confirm: ConfirmPopUp,
     plot: PLotPopUp,
+    speed: EditSpeedPopUp,
 }
 #[derive(Default)]
 pub struct Bandwidth {
@@ -106,10 +117,16 @@ impl Default for MyApp {
         let files = match File2Dl::from("Downloads") {
             Ok(f) => f,
             Err(e) => {
-                let error = ErrorPopUp {
-                    value: e.to_string(),
-                    show: true,
-                    channel: channel(),
+                let error = {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        ErrorPopUp {
+                            value: e.to_string(),
+                            show: true,
+                            channel: channel(),
+                        }
+                    } else {
+                        ErrorPopUp::default()
+                    }
                 };
                 let download = DownloadPopUp::default();
                 let confirm = ConfirmPopUp::default();
@@ -120,6 +137,7 @@ impl Default for MyApp {
                         download,
                         confirm,
                         plot: PLotPopUp::default(),
+                        speed: EditSpeedPopUp::default(),
                     },
                     temp_action: Actions::default(),
                     search: String::default(),
@@ -134,7 +152,6 @@ impl Default for MyApp {
                 let file = f.to_owned();
                 FDl {
                     file,
-                    speed: 0f64,
                     new: false,
                     initiated: false,
                     selected: false,
@@ -155,7 +172,6 @@ impl Default for MyApp {
 #[derive(Debug, Default, Clone)]
 struct FDl {
     file: File2Dl,
-    speed: f64,
     new: bool,
     initiated: bool,
     selected: bool,
@@ -183,12 +199,16 @@ pub enum Actions {
     None,
     Reboot,
     Shutdown,
+    Open,
 }
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         set_total_bandwidth(self);
         check_connection(self);
         run_downloads(self);
+        if self.popups.speed.show {
+            show_modify_speed_window(ctx, self);
+        }
         if self.popups.plot.show {
             show_plot_window(ctx, self);
         }
@@ -260,7 +280,6 @@ fn run_downloads(interface: &mut MyApp) {
         let file = &fdl.file;
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
         let new = fdl.new;
-        let speed = fdl.speed;
         if !complete && !&fdl.initiated {
             let rt = Runtime::new().unwrap();
             let file = file.clone();
@@ -269,19 +288,21 @@ fn run_downloads(interface: &mut MyApp) {
                 rt.block_on(async move {
                     if file.url.range_support {
                         loop {
-                            match file.single_thread_dl(speed).await {
+                            match file.single_thread_dl().await {
                                 Ok(_) => break,
                                 Err(e) => {
-                                    tx_error.send(e.to_string()).unwrap();
+                                    let error = format!("{}: {:?}", file.name_on_disk, e);
+                                    tx_error.send(error).unwrap();
                                 }
                             }
                             sleep(Duration::from_secs(5));
                         }
                     } else if new {
-                        match file.single_thread_dl(speed).await {
+                        match file.single_thread_dl().await {
                             Ok(_) => {}
                             Err(e) => {
-                                tx_error.send(e.to_string()).unwrap();
+                                let error = format!("{}: {:?}", file.name_on_disk, e);
+                                tx_error.send(error).unwrap();
                             }
                         }
                     }
