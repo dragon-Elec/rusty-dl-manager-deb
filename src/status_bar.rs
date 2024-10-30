@@ -1,5 +1,5 @@
 use crate::{colors::*, MyApp};
-use eframe::egui::{self, Button, CursorIcon, Label, Layout, RichText, Ui};
+use eframe::egui::{self, Button, CursorIcon, Label, Layout, RichText, Separator, Ui};
 pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
     ui.with_layout(Layout::right_to_left(egui::Align::RIGHT), |ui| {
         ui.add_space(10.0);
@@ -28,7 +28,7 @@ pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
                 }
             }
         });
-        ui.separator();
+        ui.add(Separator::grow(Separator::default(), 35.0));
         ui.add_space(ui.available_width() - 80.0);
         ui.horizontal_centered(|ui| {
             {

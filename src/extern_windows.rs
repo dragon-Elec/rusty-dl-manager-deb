@@ -77,15 +77,16 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                 ui.colored_label(*CYAN, "Action on save:");
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
-                        ui.visuals_mut().widgets.inactive.weak_bg_fill = *CYAN;
-                        ui.visuals_mut().widgets.open.weak_bg_fill = *CYAN;
-                        ui.visuals_mut().widgets.hovered.weak_bg_fill = *CYAN;
-                        ui.visuals_mut().widgets.active.weak_bg_fill = *CYAN;
-                        ui.visuals_mut().widgets.inactive.fg_stroke.color = *DARK_INNER;
-                        ui.visuals_mut().widgets.open.fg_stroke.color = *DARK_INNER;
-                        ui.visuals_mut().widgets.hovered.fg_stroke.color = *DARK_INNER;
-                        ui.visuals_mut().widgets.active.fg_stroke.color = *DARK_INNER;
-                        ui.visuals_mut().override_text_color = Some(*DARK_INNER);
+                        let visuals = ui.visuals_mut();
+                        visuals.widgets.inactive.weak_bg_fill = *CYAN;
+                        visuals.widgets.open.weak_bg_fill = *CYAN;
+                        visuals.widgets.hovered.weak_bg_fill = *CYAN;
+                        visuals.widgets.active.weak_bg_fill = *CYAN;
+                        visuals.widgets.inactive.fg_stroke.color = *DARK_INNER;
+                        visuals.widgets.open.fg_stroke.color = *DARK_INNER;
+                        visuals.widgets.hovered.fg_stroke.color = *DARK_INNER;
+                        visuals.widgets.active.fg_stroke.color = *DARK_INNER;
+                        visuals.override_text_color = Some(*DARK_INNER);
                         egui::ComboBox::from_label("")
                             .width(370.0)
                             .selected_text(format!("{:?}", &interface.temp_action))
@@ -418,7 +419,7 @@ pub fn show_modify_speed_window(ctx: &eframe::egui::Context, interface: &mut MyA
                 let button = Button::new(text).fill(*CYAN);
                 let res = ui.add(button);
                 if res.clicked() {
-                    let speed = match interface.popups.speed.error.parse::<f64>() {
+                    let speed = match interface.popups.speed.temp_val.parse::<f64>() {
                         Ok(f) => f,
                         Err(e) => {
                             interface.popups.speed.error = e.to_string();
@@ -443,6 +444,7 @@ pub fn show_modify_speed_window(ctx: &eframe::egui::Context, interface: &mut MyA
                             }
                         }
                     }
+                    interface.popups.speed.show = false;
                 }
                 ui.add_space(280.0);
                 let text = RichText::new(egui_phosphor::regular::X).size(20.0);

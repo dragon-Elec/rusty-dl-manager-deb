@@ -7,9 +7,13 @@ use extern_windows::{
     show_plot_window,
 };
 use menu_bar::init_menu_bar;
+use server::interception::init_server;
 use status_bar::init_status_bar;
 use std::{
+    fs::{remove_file, File},
+    io::{Read, Write},
     net::TcpStream,
+    path::Path,
     sync::mpsc::{channel, Receiver, Sender},
     thread::sleep,
     time::Duration,
@@ -21,6 +25,7 @@ mod colors;
 mod dl;
 mod extern_windows;
 mod menu_bar;
+mod server;
 mod status_bar;
 mod table;
 
@@ -106,6 +111,7 @@ pub struct Bandwidth {
 }
 struct MyApp {
     files: Vec<FDl>,
+    urls: (Sender<String>, Receiver<String>),
     popups: PopUps,
     temp_action: Actions,
     search: String,
@@ -132,6 +138,7 @@ impl Default for MyApp {
                 let confirm = ConfirmPopUp::default();
                 return Self {
                     files: Vec::default(),
+                    urls: channel(),
                     popups: PopUps {
                         error,
                         download,
@@ -161,6 +168,7 @@ impl Default for MyApp {
             .collect::<Vec<_>>();
         Self {
             files,
+            urls: channel(),
             popups: PopUps::default(),
             temp_action: Actions::default(),
             search: String::default(),
@@ -202,10 +210,11 @@ pub enum Actions {
     Open,
 }
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         set_total_bandwidth(self);
         check_connection(self);
         run_downloads(self);
+        check_urls(self);
         if self.popups.speed.show {
             show_modify_speed_window(ctx, self);
         }
@@ -253,6 +262,7 @@ impl eframe::App for MyApp {
             });
         egui::TopBottomPanel::bottom(Id::new("Bottom"))
             .exact_height(40.0)
+            .show_separator_line(false)
             .frame(egui::Frame::none().fill(*DARKER_PURPLE))
             .show(ctx, |ui| {
                 init_status_bar(self, ui);
@@ -261,7 +271,13 @@ impl eframe::App for MyApp {
 }
 
 fn main() -> eframe::Result {
-    env_logger::init();
+    let path = Path::new("urls.txt");
+    if path.exists() {
+        remove_file(path).expect("Couldn't remove urls file");
+    }
+    std::thread::spawn(move || {
+        init_server().unwrap_or_default();
+    });
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([190.0, 190.0]),
         centered: true,
@@ -394,5 +410,35 @@ fn update_bandwidth_history(interface: &mut MyApp) {
         .push(interface.bandwidth.total_bandwidth);
     if interface.bandwidth.history.len() > 100 {
         interface.bandwidth.history.remove(0);
+    }
+}
+
+fn check_urls(interface: &mut MyApp) {
+    let tx = interface.urls.0.clone();
+    std::thread::spawn(move || {
+        if Path::new("urls.txt").exists() {
+            let mut file = File::open("urls.txt").expect("Couldn't open file");
+            let mut buffer = String::default();
+            file.read_to_string(&mut buffer)
+                .expect("Couldn't read file");
+
+            if !buffer.is_empty() {
+                tx.send(buffer).expect("Couldn't send");
+            }
+        }
+    });
+    if let Ok(val) = interface.urls.1.try_recv() {
+        let mut lines = val.lines();
+        if !interface.popups.download.show {
+            if let Some(line) = lines.next() {
+                interface.popups.download.link = line.to_string();
+                interface.popups.download.show = true;
+                let remaining_urls: Vec<&str> = lines.collect();
+                let mut file = File::create("urls.txt").expect("Couldn't create");
+                for url in remaining_urls {
+                    file.write_all(url.as_bytes()).expect("Couldn't write");
+                }
+            }
+        }
     }
 }
