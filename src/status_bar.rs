@@ -1,5 +1,28 @@
 use crate::{colors::*, MyApp};
 use eframe::egui::{self, Button, CursorIcon, Label, Layout, RichText, Separator, Ui};
+use std::{
+    net::TcpStream,
+    sync::mpsc::{channel, Receiver, Sender},
+    thread::sleep,
+    time::Duration,
+};
+
+#[derive(Debug)]
+pub struct Connection {
+    connected: bool,
+    initiated: bool,
+    channel: (Sender<bool>, Receiver<bool>),
+}
+impl Default for Connection {
+    fn default() -> Self {
+        Self {
+            channel: channel(),
+            connected: false,
+            initiated: false,
+        }
+    }
+}
+
 pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
     ui.with_layout(Layout::right_to_left(egui::Align::RIGHT), |ui| {
         ui.add_space(10.0);
@@ -62,4 +85,30 @@ pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
             }
         });
     });
+}
+
+pub fn check_connection(interface: &mut MyApp) {
+    if !interface.connection.initiated {
+        let tx = interface.connection.channel.0.clone();
+        interface.runtime.spawn(async move {
+            loop {
+                let is_connected = tcp_ping();
+                if let Err(e) = tx.send(is_connected) {
+                    println!("Failed to send connection status: {}", e);
+                }
+                sleep(Duration::from_secs(5));
+            }
+        });
+        interface.connection.initiated = true;
+    }
+
+    while let Ok(val) = interface.connection.channel.1.try_recv() {
+        interface.connection.connected = val;
+    }
+}
+
+fn tcp_ping() -> bool {
+    let address = "8.8.8.8:53";
+    let timeout = Duration::from_secs(3);
+    TcpStream::connect_timeout(&address.parse().unwrap(), timeout).is_ok()
 }

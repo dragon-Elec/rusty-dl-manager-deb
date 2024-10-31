@@ -23,3 +23,5 @@ env_logger = "0.11.5"
 opener = "0.7.2"
 poem = "3.1.3"
 tracing-subscriber = "0.3.18"
+tray-item = { version = "0.10.0", features = ["ksni"] }
+image = "0.25.4"

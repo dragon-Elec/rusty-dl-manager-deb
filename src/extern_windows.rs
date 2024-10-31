@@ -163,7 +163,6 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                         };
                         let speed = (speed * (1024.0 * 1024.0)) as usize;
                         file.speed = Arc::new(AtomicUsize::new(speed));
-                        println!("{:?}", file.speed);
                         file.switch_status();
                         let file = FDl {
                             file,
