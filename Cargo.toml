@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 content_disposition = "0.4.0"
-eframe = { version = "0.28", features = ["default"] }
+eframe = { version = "0.28", features = ["default", "wgpu"] }
 egui-phosphor = {version = "0.6", features = ["fill"] }
 egui_extras = "0.28"
 futures = "0.3.31"

@@ -1,7 +1,3 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
-
-use eframe::egui::Color32;
-
 use crate::{
     dl::file2dl::File2Dl,
     extern_windows::{
@@ -10,17 +6,17 @@ use crate::{
     },
     MyApp,
 };
+use eframe::egui::Color32;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
-#[derive(Debug, Default)]
-pub struct PLotPopUp {
-    pub show: bool,
-}
+type TaskInner = Box<dyn FnOnce(&mut MyApp)>;
+type Task = Box<dyn Fn() -> TaskInner>;
 
 pub struct ConfirmPopUp {
     pub text: String,
     pub color: Color32,
     pub show: bool,
-    pub task: Box<dyn Fn() -> Box<dyn FnOnce(&mut MyApp)>>,
+    pub task: Task,
 }
 impl Default for ConfirmPopUp {
     fn default() -> Self {
@@ -31,6 +27,11 @@ impl Default for ConfirmPopUp {
             task: Box::new(|| Box::new(|_app: &mut MyApp| {})),
         }
     }
+}
+
+#[derive(Debug, Default)]
+pub struct PLotPopUp {
+    pub show: bool,
 }
 
 #[derive(Default)]

@@ -1,12 +1,12 @@
 use colors::{DARKER_PURPLE, PURPLE};
 use dl::file2dl::File2Dl;
-use download_mechanism::{check_urls, run_downloads, set_total_bandwidth};
-use eframe::egui::{self, Id};
-use egui_aesthetix::{themes::TokyoNight, Aesthetix};
-use extern_windows::{
-    show_confirm_window, show_error_window, show_input_window, show_modify_speed_window,
-    show_plot_window,
+use download_mechanism::{check_urls, run_downloads, set_total_bandwidth, Actions};
+use eframe::{
+    egui::{self, Id},
+    EventLoopBuilder,
 };
+use egui_aesthetix::{themes::TokyoNight, Aesthetix};
+use extern_windows::Bandwidth;
 use menu_bar::init_menu_bar;
 use popups::*;
 use server::interception::init_server;
@@ -18,7 +18,7 @@ use std::{
 };
 use table::lay_table;
 use tokio::runtime::{self, Runtime};
-use tray::init_tray_icon;
+use tray::{handle_tray_events, Tray};
 
 mod colors;
 mod dl;
@@ -31,11 +31,6 @@ mod status_bar;
 mod table;
 mod tray;
 
-#[derive(Default)]
-pub struct Bandwidth {
-    total_bandwidth: usize,
-    history: Vec<usize>,
-}
 struct MyApp {
     runtime: Runtime,
     files: Vec<FDl>,
@@ -45,79 +40,87 @@ struct MyApp {
     search: String,
     connection: Connection,
     bandwidth: Bandwidth,
+    tray_menu: Tray,
 }
-impl Default for MyApp {
-    fn default() -> Self {
-        let files = match File2Dl::from("Downloads") {
-            Ok(f) => f,
-            Err(e) => {
-                let error = {
-                    if e.kind() != std::io::ErrorKind::NotFound {
-                        ErrorPopUp {
-                            value: e.to_string(),
-                            show: true,
-                            channel: channel(),
-                        }
-                    } else {
-                        ErrorPopUp::default()
-                    }
-                };
-                let download = DownloadPopUp::default();
-                let confirm = ConfirmPopUp::default();
-                return Self {
-                    runtime: runtime::Builder::new_multi_thread()
-                        .enable_all()
-                        .build()
-                        .unwrap(),
-                    files: Vec::default(),
-                    urls: channel(),
-                    popups: PopUps {
-                        error,
-                        download,
-                        confirm,
-                        plot: PLotPopUp::default(),
-                        speed: EditSpeedPopUp::default(),
-                    },
-                    temp_action: Actions::default(),
-                    search: String::default(),
-                    connection: Connection::default(),
-                    bandwidth: Bandwidth::default(),
-                };
-            }
+fn setup_custom_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+
+    fonts.font_data.insert(
+        "my_font".to_owned(),
+        egui::FontData::from_static(include_bytes!("../JetBrainsMono-Regular.ttf")),
+    );
+
+    fonts
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default()
+        .insert(0, "my_font".to_owned());
+
+    fonts
+        .families
+        .entry(egui::FontFamily::Monospace)
+        .or_default()
+        .insert(0, "my_font".to_owned());
+
+    egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+
+    ctx.set_fonts(fonts);
+}
+
+impl MyApp {
+    fn default(cc: &eframe::CreationContext<'_>) -> Self {
+        setup_custom_fonts(&cc.egui_ctx);
+        let runtime = runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("Failed to build runtime");
+
+        let popups = PopUps {
+            error: Self::create_error_popup(),
+            download: DownloadPopUp::default(),
+            confirm: ConfirmPopUp::default(),
+            plot: PLotPopUp::default(),
+            speed: EditSpeedPopUp::default(),
         };
-        let files = files
-            .iter()
-            .map(|f| {
-                let file = f.to_owned();
-                FDl {
-                    file,
-                    new: false,
-                    initiated: false,
-                    selected: false,
-                    action_on_save: Actions::default(),
-                }
-            })
-            .collect::<Vec<_>>();
+
+        let files = Self::load_files().unwrap_or_default();
+
         Self {
-            runtime: runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap(),
+            runtime,
             files,
             urls: channel(),
-            popups: PopUps::default(),
+            popups,
             temp_action: Actions::default(),
             search: String::default(),
             connection: Connection::default(),
             bandwidth: Bandwidth::default(),
+            tray_menu: Tray::default(),
         }
     }
-}
+    fn create_error_popup() -> ErrorPopUp {
+        match File2Dl::from("Downloads") {
+            Ok(_) => ErrorPopUp::default(),
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => ErrorPopUp {
+                value: e.to_string(),
+                show: true,
+                channel: channel(),
+            },
+            _ => ErrorPopUp::default(),
+        }
+    }
 
-impl MyApp {
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        setup_custom_fonts(&cc.egui_ctx);
-        MyApp::default()
+    fn load_files() -> Result<Vec<FDl>, std::io::Error> {
+        let files = File2Dl::from("Downloads")?;
+        Ok(files
+            .into_iter()
+            .map(|file| FDl {
+                file,
+                new: false,
+                initiated: false,
+                selected: false,
+                action_on_save: Actions::default(),
+            })
+            .collect())
     }
 }
 
@@ -130,21 +133,40 @@ struct FDl {
     action_on_save: Actions,
 }
 
-#[derive(Debug, Default, PartialEq, Clone)]
-pub enum Actions {
-    #[default]
-    None,
-    Reboot,
-    Shutdown,
-    Open,
+fn main() -> eframe::Result {
+    let path = Path::new("urls.txt");
+    if path.exists() {
+        remove_file(path).expect("Couldn't remove urls file");
+    }
+    std::thread::spawn(move || {
+        init_server().unwrap_or_default();
+    });
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([190.0, 190.0]),
+        centered: true,
+        vsync: true,
+        ..Default::default()
+    };
+    eframe::run_native("Download Manager", options, {
+        Box::new(|cc| Ok(Box::new(MyApp::default(cc))))
+    })
 }
+
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
+        if ctx.input(|i| i.viewport().close_requested()) {
+            self.tray_menu
+                .channel
+                .0
+                .send(tray::Message::Quit)
+                .expect("Couldn't exit tray")
+        }
         set_total_bandwidth(self);
         check_connection(self);
         run_downloads(self);
         check_urls(self);
         handle_popups(self, ctx);
+        handle_tray_events(self);
         egui::TopBottomPanel::top(Id::new("Top"))
             .exact_height(40.0)
             .frame(egui::Frame::none().fill(*DARKER_PURPLE))
@@ -176,49 +198,4 @@ impl eframe::App for MyApp {
                 init_status_bar(self, ui);
             });
     }
-}
-
-fn main() -> eframe::Result {
-    let path = Path::new("urls.txt");
-    if path.exists() {
-        remove_file(path).expect("Couldn't remove urls file");
-    }
-    init_tray_icon();
-    std::thread::spawn(move || {
-        init_server().unwrap_or_default();
-    });
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([190.0, 190.0]),
-        centered: true,
-        vsync: true,
-        ..Default::default()
-    };
-    eframe::run_native("Download Manager", options, {
-        Box::new(|cc| Ok(Box::new(MyApp::new(cc))))
-    })
-}
-
-fn setup_custom_fonts(ctx: &egui::Context) {
-    let mut fonts = egui::FontDefinitions::default();
-
-    fonts.font_data.insert(
-        "my_font".to_owned(),
-        egui::FontData::from_static(include_bytes!("../JetBrainsMono-Regular.ttf")),
-    );
-
-    fonts
-        .families
-        .entry(egui::FontFamily::Proportional)
-        .or_default()
-        .insert(0, "my_font".to_owned());
-
-    fonts
-        .families
-        .entry(egui::FontFamily::Monospace)
-        .or_default()
-        .insert(0, "my_font".to_owned());
-
-    egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
-
-    ctx.set_fonts(fonts);
 }

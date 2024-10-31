@@ -10,17 +10,27 @@ use crate::{
     Actions, FDl, MyApp,
 };
 
+#[derive(Default)]
+pub struct Bandwidth {
+    pub total_bandwidth: usize,
+    pub history: Vec<usize>,
+}
+
 pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
     let window_size = egui::vec2(250.0, 200.0);
     let pos = Pos2::new(
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
+    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+        egui::UserAttentionType::Critical,
+    ));
     egui::Window::new("Add Download")
         .pivot(Align2::CENTER_CENTER)
-        .current_pos(pos)
+        .default_pos(pos)
         .default_size(window_size)
         .resizable(false)
+        .movable(true)
         .frame(
             egui::Frame::default()
                 .fill(*DARKER_PURPLE)
@@ -199,8 +209,9 @@ pub fn show_error_window(ctx: &eframe::egui::Context, interface: &mut MyApp, err
     );
     egui::Window::new("Error Window")
         .pivot(Align2::CENTER_CENTER)
-        .current_pos(pos)
+        .default_pos(pos)
         .default_size(window_size)
+        .movable(true)
         .frame(
             egui::Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -244,7 +255,8 @@ pub fn show_confirm_window(
     egui::Window::new("Confirm")
         .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
-        .current_pos(pos)
+        .default_pos(pos)
+        .movable(true)
         .frame(
             egui::Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -291,9 +303,10 @@ pub fn show_plot_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
     let pos = Pos2::new(window_size.x, window_size.y);
     egui::Window::new("Error Window")
         .pivot(Align2::CENTER_CENTER)
-        .current_pos(pos)
+        .default_pos(pos)
         .default_size(window_size)
         .resizable(false)
+        .movable(true)
         .frame(
             egui::Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -346,7 +359,8 @@ pub fn show_modify_speed_window(ctx: &eframe::egui::Context, interface: &mut MyA
     egui::Window::new("Confirm")
         .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
-        .current_pos(pos)
+        .default_pos(pos)
+        .movable(true)
         .frame(
             egui::Frame::none()
                 .fill(*DARKER_PURPLE)

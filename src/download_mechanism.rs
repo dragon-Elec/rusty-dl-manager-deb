@@ -2,6 +2,8 @@ use std::{
     fs::File,
     io::{Read, Write},
     path::Path,
+    thread::sleep,
+    time::Duration,
 };
 
 use crate::MyApp;
@@ -95,4 +97,13 @@ pub fn run_downloads(interface: &mut MyApp) {
         interface.popups.error.value = err;
         interface.popups.error.show = true;
     }
+}
+
+#[derive(Debug, Default, PartialEq, Clone)]
+pub enum Actions {
+    #[default]
+    None,
+    Reboot,
+    Shutdown,
+    Open,
 }

@@ -250,7 +250,8 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool, new: bool) {
         if res.clicked() && !complete {
             if file.url.range_support {
                 file.switch_status();
-            } else if new {
+            }
+            if new && !file.url.range_support {
                 file.switch_status();
             }
         }
