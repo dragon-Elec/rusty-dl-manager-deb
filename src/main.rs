@@ -1,6 +1,6 @@
 use colors::{CYAN, DARKER_PURPLE, DARK_INNER, GREEN, PURPLE, RED};
 use dl::{errors, file2dl::File2Dl};
-use eframe::egui::{self, Button, Color32, Id, Label, Layout};
+use eframe::egui::{self, mutex::Mutex, Button, Color32, Id, Label, Layout};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use extern_windows::{
     show_confirm_window, show_error_window, show_input_window, show_modify_speed_window,
@@ -14,12 +14,18 @@ use std::{
     io::{Read, Write},
     net::TcpStream,
     path::Path,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc,
+    },
     thread::sleep,
     time::Duration,
 };
 use table::lay_table;
-use tokio::runtime::Runtime;
+use tokio::{
+    runtime::{self, Runtime},
+    task::JoinHandle,
+};
 
 mod colors;
 mod dl;
@@ -110,6 +116,7 @@ pub struct Bandwidth {
     history: Vec<usize>,
 }
 struct MyApp {
+    runtime: Runtime,
     files: Vec<FDl>,
     urls: (Sender<String>, Receiver<String>),
     popups: PopUps,
@@ -137,6 +144,10 @@ impl Default for MyApp {
                 let download = DownloadPopUp::default();
                 let confirm = ConfirmPopUp::default();
                 return Self {
+                    runtime: runtime::Builder::new_multi_thread()
+                        .enable_all()
+                        .build()
+                        .unwrap(),
                     files: Vec::default(),
                     urls: channel(),
                     popups: PopUps {
@@ -167,6 +178,10 @@ impl Default for MyApp {
             })
             .collect::<Vec<_>>();
         Self {
+            runtime: runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
             files,
             urls: channel(),
             popups: PopUps::default(),
@@ -297,40 +312,37 @@ fn run_downloads(interface: &mut MyApp) {
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
         let new = fdl.new;
         if !complete && !&fdl.initiated {
-            let rt = Runtime::new().unwrap();
             let file = file.clone();
             let tx_error = interface.popups.error.channel.0.clone();
-            std::thread::spawn(move || {
-                rt.block_on(async move {
-                    if file.url.range_support {
-                        loop {
-                            match file.single_thread_dl().await {
-                                Ok(_) => break,
-                                Err(e) => {
-                                    let error = format!("{}: {:?}", file.name_on_disk, e);
-                                    tx_error.send(error).unwrap();
-                                }
-                            }
-                            sleep(Duration::from_secs(5));
-                        }
-                    } else if new {
+            interface.runtime.spawn(async move {
+                if file.url.range_support {
+                    loop {
                         match file.single_thread_dl().await {
-                            Ok(_) => {}
+                            Ok(_) => break,
                             Err(e) => {
                                 let error = format!("{}: {:?}", file.name_on_disk, e);
                                 tx_error.send(error).unwrap();
                             }
                         }
+                        sleep(Duration::from_secs(5));
                     }
-                })
+                } else if new {
+                    match file.single_thread_dl().await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let error = format!("{}: {:?}", file.name_on_disk, e);
+                            tx_error.send(error).unwrap();
+                        }
+                    }
+                }
             });
 
             fdl.initiated = true;
         }
-        if let Ok(err) = interface.popups.error.channel.1.try_recv() {
-            interface.popups.error.value = err;
-            interface.popups.error.show = true;
-        }
+    }
+    if let Ok(err) = interface.popups.error.channel.1.try_recv() {
+        interface.popups.error.value = err;
+        interface.popups.error.show = true;
     }
 }
 
@@ -369,12 +381,14 @@ impl MyApp {
 fn check_connection(interface: &mut MyApp) {
     if !interface.connection.initiated {
         let tx = interface.connection.channel.0.clone();
-        std::thread::spawn(move || loop {
-            let is_connected = tcp_ping();
-            if let Err(e) = tx.send(is_connected) {
-                println!("Failed to send connection status: {}", e);
+        interface.runtime.spawn(async move {
+            loop {
+                let is_connected = tcp_ping();
+                if let Err(e) = tx.send(is_connected) {
+                    println!("Failed to send connection status: {}", e);
+                }
+                sleep(Duration::from_secs(5));
             }
-            sleep(Duration::from_secs(5));
         });
         interface.connection.initiated = true;
     }
@@ -415,7 +429,7 @@ fn update_bandwidth_history(interface: &mut MyApp) {
 
 fn check_urls(interface: &mut MyApp) {
     let tx = interface.urls.0.clone();
-    std::thread::spawn(move || {
+    interface.runtime.spawn(async move {
         if Path::new("urls.txt").exists() {
             let mut file = File::open("urls.txt").expect("Couldn't open file");
             let mut buffer = String::default();

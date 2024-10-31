@@ -1,6 +1,6 @@
 use std::sync::{atomic::AtomicUsize, Arc};
 
-use eframe::egui::{self, Align2, Button, Color32, Label, Layout, Pos2, RichText, TextEdit, Vec2};
+use eframe::egui::{self, Align2, Button, Color32, Layout, Pos2, RichText, TextEdit, Vec2};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_plot::{Legend, Line};
 
@@ -132,20 +132,17 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                                     }
                                 };
                             }
-                            let rt = tokio::runtime::Runtime::new().unwrap();
                             let tx = interface.popups.download.error_channel.0.clone();
                             let file_tx = interface.popups.download.file_channel.0.clone();
                             let link = interface.popups.download.link.clone();
                             interface.popups.download.error = String::from("Initiating...");
-                            std::thread::spawn(move || {
-                                rt.block_on(async move {
-                                    match File2Dl::new(&link, "Downloads").await {
-                                        Ok(file) => file_tx.send(file).unwrap(),
-                                        Err(e) => {
-                                            tx.send(e.to_string()).unwrap();
-                                        }
-                                    };
-                                });
+                            interface.runtime.spawn(async move {
+                                match File2Dl::new(&link, "Downloads").await {
+                                    Ok(file) => file_tx.send(file).unwrap(),
+                                    Err(e) => {
+                                        tx.send(e.to_string()).unwrap();
+                                    }
+                                };
                             });
                         }
                     });
