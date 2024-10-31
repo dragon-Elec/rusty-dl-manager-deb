@@ -10,6 +10,7 @@ use eframe::egui::{
 };
 use egui_extras::{Column, TableBuilder};
 use irox_egui_extras::progressbar::ProgressBar;
+use std::sync::atomic::Ordering::Relaxed;
 pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
     let available_width = ui.available_width();
     let mut select_size = 0f32;
@@ -75,6 +76,10 @@ pub fn lay_table(interface: &mut MyApp, ui: &mut Ui, ctx: &Context) {
                 })
                 .map(|f| f.to_owned())
                 .collect::<Vec<_>>();
+            to_display.sort_by(|a, b| {
+                (a.file.complete.load(Relaxed), &a.file.name_on_disk)
+                    .cmp(&(b.file.complete.load(Relaxed), &b.file.name_on_disk))
+            });
             for fdl in to_display.iter_mut() {
                 let file = &fdl.file;
                 let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
