@@ -75,7 +75,13 @@ pub fn handle_tray_events(interface: &mut DownloadManager) {
         match msg {
             Message::AddDl => interface.popups.download.show = true,
             Message::Show => interface.show_window = true,
-            Message::Hide => interface.show_window = false,
+            Message::Hide => {
+                interface.popups.download.show = false;
+                interface.popups.confirm.show = false;
+                interface.popups.error.show = false;
+                interface.popups.plot.show = false;
+                interface.popups.speed.show = false;
+            }
             Message::Quit => std::process::exit(0),
             _ => {}
         }

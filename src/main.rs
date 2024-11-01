@@ -165,10 +165,13 @@ fn main() {
         init_server().unwrap_or_default();
     });
     let mut rw = RenderWindow::new(
-        (640, 480),
-        "ViewportCommand test",
+        (860, 480),
+        "Rusty Dl Manager",
         Style::NONE,
-        &ContextSettings::default(),
+        &ContextSettings {
+            antialiasing_level: 16,
+            ..ContextSettings::default()
+        },
     );
     rw.set_vertical_sync_enabled(true);
     let mut sf_egui = SfEgui::new(&rw);
@@ -180,6 +183,10 @@ fn main() {
             if matches!(ev, Event::Closed) {
                 state.show_window = false;
                 state.popups.download.show = false;
+                state.popups.confirm.show = false;
+                state.popups.error.show = false;
+                state.popups.plot.show = false;
+                state.popups.speed.show = false;
             }
         }
 
@@ -187,6 +194,10 @@ fn main() {
             rw.set_visible(true)
         } else {
             rw.set_visible(false)
+        }
+
+        if state.popups.download.show {
+            rw.request_focus();
         }
 
         sf_egui
