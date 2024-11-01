@@ -24,7 +24,6 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
-
     interface.show_window = true;
     Window::new("Add Download")
         .pivot(Align2::CENTER_CENTER)

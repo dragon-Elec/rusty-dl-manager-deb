@@ -170,11 +170,9 @@ fn main() {
     let mut rw = RenderWindow::new(
         init_size,
         "Rusty Dl Manager",
-        Style::RESIZE,
+        Style::DEFAULT,
         &ContextSettings {
             antialiasing_level: 8,
-            minor_version: 4u32,
-            major_version: 4u32,
             ..Default::default()
         },
     );
@@ -207,7 +205,6 @@ fn main() {
                 }
             }
         }
-
         if !state.show_window && state.tray_menu.message == Message::Show {
             let width = init_size.0;
             let height = init_size.1;
