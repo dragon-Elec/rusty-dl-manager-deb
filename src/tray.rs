@@ -73,9 +73,15 @@ impl Default for Tray {
 pub fn handle_tray_events(interface: &mut DownloadManager) {
     if let Ok(msg) = interface.tray_menu.channel.1.try_recv() {
         match msg {
-            Message::AddDl => interface.popups.download.show = true,
-            Message::Show => interface.show_window = true,
+            Message::AddDl => {
+                interface.popups.download.show = true;
+            }
+            Message::Show => {
+                interface.tray_menu.message = Message::Show;
+                interface.show_window = true
+            }
             Message::Hide => {
+                interface.show_window = false;
                 interface.popups.download.show = false;
                 interface.popups.confirm.show = false;
                 interface.popups.error.show = false;

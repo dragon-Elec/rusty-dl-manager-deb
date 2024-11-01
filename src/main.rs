@@ -3,13 +3,15 @@ use dl::file2dl::File2Dl;
 use download_mechanism::{check_urls, run_downloads, set_total_bandwidth, Actions};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_sfml::{
-    egui::{Color32, Context, FontData, FontDefinitions, Id},
+    egui::{Color32, Context, FontData, FontDefinitions, Id, Vec2},
     sfml::{
-        graphics::{Color, RenderTarget, RenderWindow},
+        graphics::{Color, FloatRect, RenderTarget, RenderWindow, View},
+        system::Vector2,
         window::{ContextSettings, Event, Style},
     },
     SfEgui,
 };
+use env_logger::init;
 use extern_windows::Bandwidth;
 use menu_bar::init_menu_bar;
 use popups::*;
@@ -22,7 +24,7 @@ use std::{
 };
 use table::lay_table;
 use tokio::runtime::{self, Runtime};
-use tray::{handle_tray_events, Tray};
+use tray::{handle_tray_events, Message, Tray};
 
 mod colors;
 mod dl;
@@ -164,15 +166,19 @@ fn main() {
     std::thread::spawn(move || {
         init_server().unwrap_or_default();
     });
+    let mut init_size = (860, 480);
     let mut rw = RenderWindow::new(
-        (860, 480),
+        init_size,
         "Rusty Dl Manager",
-        Style::NONE,
+        Style::RESIZE,
         &ContextSettings {
-            antialiasing_level: 16,
-            ..ContextSettings::default()
+            antialiasing_level: 8,
+            minor_version: 4u32,
+            major_version: 4u32,
+            ..Default::default()
         },
     );
+
     rw.set_vertical_sync_enabled(true);
     let mut sf_egui = SfEgui::new(&rw);
     let mut state = DownloadManager::default();
@@ -181,23 +187,38 @@ fn main() {
         while let Some(ev) = rw.poll_event() {
             sf_egui.add_event(&ev);
             if matches!(ev, Event::Closed) {
-                state.show_window = false;
                 state.popups.download.show = false;
                 state.popups.confirm.show = false;
                 state.popups.error.show = false;
                 state.popups.plot.show = false;
                 state.popups.speed.show = false;
+                state.tray_menu.message = Message::None;
+                state.show_window = false;
             }
+            if let Event::Resized { width, height } = ev {
+                if (width, height) != init_size {
+                    init_size = (width, height);
+                    rw.set_view(&View::from_rect(FloatRect::new(
+                        0f32,
+                        0f32,
+                        width as f32,
+                        height as f32,
+                    )));
+                }
+            }
+        }
+
+        if !state.show_window && state.tray_menu.message == Message::Show {
+            let width = init_size.0;
+            let height = init_size.1;
+            rw.set_size(Vector2::new(width, height));
+            state.show_window = true;
         }
 
         if state.show_window {
             rw.set_visible(true)
         } else {
             rw.set_visible(false)
-        }
-
-        if state.popups.download.show {
-            rw.request_focus();
         }
 
         sf_egui
