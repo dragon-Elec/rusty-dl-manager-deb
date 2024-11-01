@@ -166,9 +166,8 @@ fn main() {
     std::thread::spawn(move || {
         init_server().unwrap_or_default();
     });
-    let mut init_size = (860, 480);
     let mut rw = RenderWindow::new(
-        init_size,
+        (860, 480),
         "Rusty Dl Manager",
         Style::DEFAULT,
         &ContextSettings {
@@ -194,22 +193,13 @@ fn main() {
                 state.show_window = false;
             }
             if let Event::Resized { width, height } = ev {
-                if (width, height) != init_size {
-                    init_size = (width, height);
-                    rw.set_view(&View::from_rect(FloatRect::new(
-                        0f32,
-                        0f32,
-                        width as f32,
-                        height as f32,
-                    )));
-                }
+                rw.set_view(&View::from_rect(FloatRect::new(
+                    0f32,
+                    0f32,
+                    width as f32,
+                    height as f32,
+                )));
             }
-        }
-        if !state.show_window && state.tray_menu.message == Message::Show {
-            let width = init_size.0;
-            let height = init_size.1;
-            rw.set_size(Vector2::new(width, height));
-            state.show_window = true;
         }
 
         if state.show_window {
