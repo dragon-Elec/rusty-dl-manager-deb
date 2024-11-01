@@ -29,7 +29,7 @@ pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.horizontal_centered(|ui| {
             if interface.connection.connected {
                 let text = RichText::new(egui_phosphor::fill::GLOBE)
-                    .size(25.0)
+                    .size(30.0)
                     .color(*GREEN);
                 let label = Label::new(text).selectable(false);
                 let res = ui.add(label);
@@ -40,7 +40,7 @@ pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
                 }
             } else {
                 let text = RichText::new(egui_phosphor::fill::GLOBE_X)
-                    .size(25.0)
+                    .size(30.0)
                     .color(*RED);
                 let label = Label::new(text).selectable(false);
                 let res = ui.add(label);

@@ -3,15 +3,13 @@ use dl::file2dl::File2Dl;
 use download_mechanism::{check_urls, run_downloads, set_total_bandwidth, Actions};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_sfml::{
-    egui::{Color32, Context, FontData, FontDefinitions, Id, Vec2},
+    egui::{Color32, Context, FontData, FontDefinitions, Id},
     sfml::{
-        graphics::{Color, FloatRect, RenderTarget, RenderWindow, View},
-        system::Vector2,
+        graphics::{FloatRect, RenderTarget, RenderWindow, View},
         window::{ContextSettings, Event, Style},
     },
     SfEgui,
 };
-use env_logger::init;
 use extern_windows::Bandwidth;
 use menu_bar::init_menu_bar;
 use popups::*;
@@ -21,6 +19,7 @@ use std::{
     fs::remove_file,
     path::Path,
     sync::mpsc::{channel, Receiver, Sender},
+    time::Duration,
 };
 use table::lay_table;
 use tokio::runtime::{self, Runtime};
@@ -52,7 +51,9 @@ struct DownloadManager {
 
 impl DownloadManager {
     fn update(&mut self, ctx: &egui_sfml::egui::Context) {
-        setup_custom_fonts(ctx);
+        if !self.show_window {
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
 
         set_total_bandwidth(self);
         check_connection(self);
@@ -163,20 +164,27 @@ fn main() {
     if path.exists() {
         remove_file(path).expect("Couldn't remove urls file");
     }
-    std::thread::spawn(move || {
-        init_server().unwrap_or_default();
-    });
+
     let mut init_size = (860, 480);
     let title = "Rusty Dl Manager";
     let settings = &ContextSettings {
-        antialiasing_level: 8,
+        depth_bits: 0,
+        stencil_bits: 0,
+        antialiasing_level: 0,
         ..Default::default()
     };
     let mut rw = RenderWindow::new(init_size, title, Style::DEFAULT, settings).unwrap();
 
-    rw.set_vertical_sync_enabled(true);
+    rw.set_framerate_limit(60);
+
     let mut sf_egui = SfEgui::new(&rw);
+    setup_custom_fonts(sf_egui.context());
+
     let mut state = DownloadManager::default();
+
+    state.runtime.spawn_blocking(move || {
+        init_server().unwrap_or_default();
+    });
 
     while rw.is_open() {
         while let Some(ev) = rw.poll_event() {
@@ -202,7 +210,7 @@ fn main() {
         if state.show_window {
             rw.set_visible(true)
         } else {
-            rw.set_visible(false)
+            rw.set_visible(false);
         }
         if state.show_window && state.tray_menu.message == Message::Show {
             state.tray_menu.message = Message::None;
@@ -213,8 +221,10 @@ fn main() {
                 state.update(ctx);
             })
             .unwrap();
-        sf_egui.draw(di, &mut rw, None);
-        rw.display();
+        if state.show_window {
+            sf_egui.draw(di, &mut rw, None);
+            rw.display();
+        }
     }
 }
 

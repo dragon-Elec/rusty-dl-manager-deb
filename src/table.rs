@@ -265,7 +265,9 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool, new: bool) {
     });
 }
 fn progress_bar(file: &File2Dl, ui: &mut Ui, ctx: &Context) {
-    ctx.request_repaint();
+    if file.running.load(Relaxed) {
+        ctx.request_repaint();
+    }
     let size = file.size_on_disk.load(std::sync::atomic::Ordering::Relaxed) as f32;
     let total_size = file.url.content_length as f32;
     let percentage = size / total_size;
@@ -279,7 +281,7 @@ fn progress_bar(file: &File2Dl, ui: &mut Ui, ctx: &Context) {
                 .desired_width(ui.available_width())
                 .desired_height(ui.available_height() - 2.0)
                 .text_center(format!("{}%", (percentage * 100.0) as i32));
-            pb.is_indeterminate = file.running.load(std::sync::atomic::Ordering::Relaxed);
+            pb.animate = false;
             let res = ui.add(pb);
             if res.hovered() {
                 ui.set_width(ui.available_width());
