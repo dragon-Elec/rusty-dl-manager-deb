@@ -166,15 +166,13 @@ fn main() {
     std::thread::spawn(move || {
         init_server().unwrap_or_default();
     });
-    let mut rw = RenderWindow::new(
-        (860, 480),
-        "Rusty Dl Manager",
-        Style::DEFAULT,
-        &ContextSettings {
-            antialiasing_level: 8,
-            ..Default::default()
-        },
-    );
+    let mut init_size = (860, 480);
+    let title = "Rusty Dl Manager";
+    let settings = &ContextSettings {
+        antialiasing_level: 8,
+        ..Default::default()
+    };
+    let mut rw = RenderWindow::new(init_size, title, Style::DEFAULT, settings).unwrap();
 
     rw.set_vertical_sync_enabled(true);
     let mut sf_egui = SfEgui::new(&rw);
@@ -193,12 +191,11 @@ fn main() {
                 state.show_window = false;
             }
             if let Event::Resized { width, height } = ev {
-                rw.set_view(&View::from_rect(FloatRect::new(
-                    0f32,
-                    0f32,
-                    width as f32,
-                    height as f32,
-                )));
+                init_size = (width, height);
+                rw.set_view(
+                    &View::from_rect(FloatRect::new(0f32, 0f32, width as f32, height as f32))
+                        .unwrap(),
+                );
             }
         }
 
@@ -207,14 +204,16 @@ fn main() {
         } else {
             rw.set_visible(false)
         }
-
-        sf_egui
-            .do_frame(&mut rw, |ctx| {
+        if state.show_window && state.tray_menu.message == Message::Show {
+            state.tray_menu.message = Message::None;
+            rw.recreate(init_size, title, Style::DEFAULT, settings);
+        }
+        let di = sf_egui
+            .run(&mut rw, |_rw, ctx| {
                 state.update(ctx);
             })
             .unwrap();
-        rw.clear(Color::BLACK);
-        sf_egui.draw(&mut rw, None);
+        sf_egui.draw(di, &mut rw, None);
         rw.display();
     }
 }

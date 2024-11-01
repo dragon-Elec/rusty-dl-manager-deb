@@ -5,10 +5,10 @@ edition = "2021"
 
 [dependencies]
 content_disposition = "0.4.0"
-egui-phosphor = {version = "0.6", features = ["fill"] }
-egui_extras = "0.28"
+egui-phosphor = {version = "0.7.3", features = ["fill"] }
+egui_extras = "0.29"
 futures = "0.3.31"
-irox-egui-extras = "0.4.6"
+irox-egui-extras = "0.5"
 regex = "1.11.1"
 reqwest = { version = "0.12.8", features = ["stream"] }
 serde = { version = "1.0.213", features = ["derive"] }
@@ -17,11 +17,11 @@ thiserror = "1.0.65"
 tokio = { version = "1.41.0", features = ["full"] }
 egui-aesthetix = { version = "0.2.4", features = ["all_themes"] }
 lazy_static = "1.5.0"
-egui_plot = "0.28.0"
+egui_plot = "0.29.0"
 env_logger = "0.11.5"
 opener = "0.7.2"
 poem = "3.1.3"
 tracing-subscriber = "0.3.18"
 tray-item = { version = "0.10.0", features = ["ksni"] }
 image = "0.25.4"
-egui-sfml = "0.5.0"
+egui-sfml = "0.7.0"
