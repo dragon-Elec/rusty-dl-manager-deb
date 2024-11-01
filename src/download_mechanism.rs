@@ -6,9 +6,9 @@ use std::{
     time::Duration,
 };
 
-use crate::MyApp;
+use crate::DownloadManager;
 
-pub fn check_urls(interface: &mut MyApp) {
+pub fn check_urls(interface: &mut DownloadManager) {
     let tx = interface.urls.0.clone();
     interface.runtime.spawn(async move {
         if Path::new("urls.txt").exists() {
@@ -37,7 +37,7 @@ pub fn check_urls(interface: &mut MyApp) {
         }
     }
 }
-pub fn set_total_bandwidth(interface: &mut MyApp) {
+pub fn set_total_bandwidth(interface: &mut DownloadManager) {
     let size: usize = interface
         .files
         .iter()
@@ -50,7 +50,7 @@ pub fn set_total_bandwidth(interface: &mut MyApp) {
     interface.bandwidth.total_bandwidth = size;
     update_bandwidth_history(interface);
 }
-fn update_bandwidth_history(interface: &mut MyApp) {
+fn update_bandwidth_history(interface: &mut DownloadManager) {
     interface
         .bandwidth
         .history
@@ -59,7 +59,7 @@ fn update_bandwidth_history(interface: &mut MyApp) {
         interface.bandwidth.history.remove(0);
     }
 }
-pub fn run_downloads(interface: &mut MyApp) {
+pub fn run_downloads(interface: &mut DownloadManager) {
     for fdl in interface.files.iter_mut() {
         let file = &fdl.file;
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);

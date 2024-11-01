@@ -4,12 +4,12 @@ use crate::{
         show_confirm_window, show_error_window, show_input_window, show_modify_speed_window,
         show_plot_window,
     },
-    MyApp,
+    DownloadManager,
 };
-use eframe::egui::Color32;
+use egui_sfml::egui::Color32;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-type TaskInner = Box<dyn FnOnce(&mut MyApp)>;
+type TaskInner = Box<dyn FnOnce(&mut DownloadManager)>;
 type Task = Box<dyn Fn() -> TaskInner>;
 
 pub struct ConfirmPopUp {
@@ -24,7 +24,7 @@ impl Default for ConfirmPopUp {
             text: String::new(),
             color: Color32::default(),
             show: false,
-            task: Box::new(|| Box::new(|_app: &mut MyApp| {})),
+            task: Box::new(|| Box::new(|_app: &mut DownloadManager| {})),
         }
     }
 }
@@ -87,7 +87,7 @@ pub struct PopUps {
     pub plot: PLotPopUp,
     pub speed: EditSpeedPopUp,
 }
-pub fn handle_popups(interface: &mut MyApp, ctx: &eframe::egui::Context) {
+pub fn handle_popups(interface: &mut DownloadManager, ctx: &egui_sfml::egui::Context) {
     if interface.popups.speed.show {
         show_modify_speed_window(ctx, interface);
     }

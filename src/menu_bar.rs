@@ -1,11 +1,11 @@
 use crate::{
-    colors::{CYAN, GREEN, RED},
-    MyApp,
+    colors::{CYAN, GRAY, GREEN, PURPLE, RED},
+    DownloadManager,
 };
-use eframe::egui::{menu, Align, Color32, CursorIcon, Layout, RichText, TextEdit};
+use egui_sfml::egui::{menu, Align, Color32, CursorIcon, Layout, RichText, TextEdit};
 use std::fs::{read_dir, remove_file};
 
-pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
+pub fn init_menu_bar(interface: &mut DownloadManager, ui: &mut egui_sfml::egui::Ui) {
     menu::bar(ui, |ui| {
         let text = RichText::new("Files").color(*CYAN).strong().size(15.0);
         ui.add_space(5.0);
@@ -60,7 +60,7 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(5.0);
 
-            let text = eframe::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS)
+            let text = egui_sfml::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS)
                 .size(19.0)
                 .color(*CYAN);
             if ui.label(text).hovered() {
@@ -70,21 +70,23 @@ pub fn init_menu_bar(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
             ui.scope(|ui| {
                 ui.visuals_mut().extreme_bg_color = *CYAN;
                 ui.set_width(250.0);
-                let single_line = TextEdit::singleline(&mut interface.search).hint_text("Filename");
+                ui.visuals_mut().override_text_color = Some(*PURPLE);
+                let hint_text = RichText::new("Filename or Url").color(*GRAY);
+                let single_line = TextEdit::singleline(&mut interface.search).hint_text(hint_text);
                 ui.add(single_line);
             });
         });
     });
 }
 
-fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
+fn file_button_content(interface: &mut DownloadManager, ui: &mut egui_sfml::egui::Ui) {
     let text = RichText::new("Remove selected from list")
         .color(*CYAN)
         .strong();
     if ui.button(text).clicked() {
         interface.popups.confirm.color = Color32::GREEN;
         interface.popups.confirm.task = Box::new(|| {
-            Box::new(move |app: &mut MyApp| {
+            Box::new(move |app: &mut DownloadManager| {
                 app.files.retain(|core| !core.selected);
             })
         });
@@ -97,7 +99,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
     if ui.button(text).clicked() {
         interface.popups.confirm.color = *RED;
         interface.popups.confirm.task = Box::new(|| {
-            Box::new(move |app: &mut MyApp| {
+            Box::new(move |app: &mut DownloadManager| {
                 remove_selected_from_disk(app);
             })
         });
@@ -108,7 +110,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
     if ui.button(text).clicked() {
         interface.popups.confirm.color = *GREEN;
         interface.popups.confirm.task = Box::new(|| {
-            Box::new(move |app: &mut MyApp| {
+            Box::new(move |app: &mut DownloadManager| {
                 app.files.clear();
             })
         });
@@ -119,7 +121,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
     if ui.button(text).clicked() {
         interface.popups.confirm.color = *RED;
         interface.popups.confirm.task = Box::new(|| {
-            Box::new(move |app: &mut MyApp| {
+            Box::new(move |app: &mut DownloadManager| {
                 delete_all_files_from_disk(app);
             })
         });
@@ -127,7 +129,7 @@ fn file_button_content(interface: &mut MyApp, ui: &mut eframe::egui::Ui) {
         interface.popups.confirm.text = String::from("This will remove all files from disk")
     }
 }
-fn delete_all_files_from_disk(interface: &mut MyApp) {
+fn delete_all_files_from_disk(interface: &mut DownloadManager) {
     let dir = match read_dir("Downloads") {
         Ok(dir) => dir,
         Err(e) => {
@@ -149,7 +151,7 @@ fn delete_all_files_from_disk(interface: &mut MyApp) {
     }
     interface.files.clear();
 }
-fn remove_selected_from_disk(app: &mut MyApp) {
+fn remove_selected_from_disk(app: &mut DownloadManager) {
     app.files.retain(|core| {
         if core.selected {
             let path = format!("Downloads/{}", core.file.name_on_disk);

@@ -1,11 +1,15 @@
 use colors::{DARKER_PURPLE, PURPLE};
 use dl::file2dl::File2Dl;
 use download_mechanism::{check_urls, run_downloads, set_total_bandwidth, Actions};
-use eframe::{
-    egui::{self, Id},
-    EventLoopBuilder,
-};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
+use egui_sfml::{
+    egui::{Color32, Context, FontData, FontDefinitions, Id},
+    sfml::{
+        graphics::{Color, RenderTarget, RenderWindow},
+        window::{ContextSettings, Event, Style},
+    },
+    SfEgui,
+};
 use extern_windows::Bandwidth;
 use menu_bar::init_menu_bar;
 use popups::*;
@@ -31,7 +35,7 @@ mod status_bar;
 mod table;
 mod tray;
 
-struct MyApp {
+struct DownloadManager {
     runtime: Runtime,
     files: Vec<FDl>,
     urls: (Sender<String>, Receiver<String>),
@@ -41,35 +45,53 @@ struct MyApp {
     connection: Connection,
     bandwidth: Bandwidth,
     tray_menu: Tray,
-}
-fn setup_custom_fonts(ctx: &egui::Context) {
-    let mut fonts = egui::FontDefinitions::default();
-
-    fonts.font_data.insert(
-        "my_font".to_owned(),
-        egui::FontData::from_static(include_bytes!("../JetBrainsMono-Regular.ttf")),
-    );
-
-    fonts
-        .families
-        .entry(egui::FontFamily::Proportional)
-        .or_default()
-        .insert(0, "my_font".to_owned());
-
-    fonts
-        .families
-        .entry(egui::FontFamily::Monospace)
-        .or_default()
-        .insert(0, "my_font".to_owned());
-
-    egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
-
-    ctx.set_fonts(fonts);
+    show_window: bool,
 }
 
-impl MyApp {
-    fn default(cc: &eframe::CreationContext<'_>) -> Self {
-        setup_custom_fonts(&cc.egui_ctx);
+impl DownloadManager {
+    fn update(&mut self, ctx: &egui_sfml::egui::Context) {
+        setup_custom_fonts(ctx);
+
+        set_total_bandwidth(self);
+        check_connection(self);
+        run_downloads(self);
+        check_urls(self);
+        handle_popups(self, ctx);
+        handle_tray_events(self);
+
+        egui_sfml::egui::TopBottomPanel::top(Id::new("Top"))
+            .exact_height(40.0)
+            .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
+            .show_separator_line(false)
+            .show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    ui.add_space(7.0);
+                });
+                init_menu_bar(self, ui);
+            });
+        egui_sfml::egui::CentralPanel::default()
+            .frame(
+                egui_sfml::egui::Frame::none()
+                    .fill(*PURPLE)
+                    .inner_margin(TokyoNight.margin_style())
+                    .stroke(egui_sfml::egui::Stroke::new(
+                        1.0,
+                        Color32::from_rgba_premultiplied(31, 31, 51, 255),
+                    )),
+            )
+            .show(ctx, |ui| {
+                lay_table(self, ui, ctx);
+            });
+        egui_sfml::egui::TopBottomPanel::bottom(Id::new("Bottom"))
+            .exact_height(40.0)
+            .show_separator_line(false)
+            .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
+            .show(ctx, |ui| {
+                init_status_bar(self, ui);
+            });
+    }
+
+    fn default() -> Self {
         let runtime = runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -95,6 +117,7 @@ impl MyApp {
             connection: Connection::default(),
             bandwidth: Bandwidth::default(),
             tray_menu: Tray::default(),
+            show_window: true,
         }
     }
     fn create_error_popup() -> ErrorPopUp {
@@ -133,7 +156,7 @@ struct FDl {
     action_on_save: Actions,
 }
 
-fn main() -> eframe::Result {
+fn main() {
     let path = Path::new("urls.txt");
     if path.exists() {
         remove_file(path).expect("Couldn't remove urls file");
@@ -141,61 +164,60 @@ fn main() -> eframe::Result {
     std::thread::spawn(move || {
         init_server().unwrap_or_default();
     });
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([190.0, 190.0]),
-        centered: true,
-        vsync: true,
-        ..Default::default()
-    };
-    eframe::run_native("Download Manager", options, {
-        Box::new(|cc| Ok(Box::new(MyApp::default(cc))))
-    })
+    let mut rw = RenderWindow::new(
+        (640, 480),
+        "ViewportCommand test",
+        Style::NONE,
+        &ContextSettings::default(),
+    );
+    rw.set_vertical_sync_enabled(true);
+    let mut sf_egui = SfEgui::new(&rw);
+    let mut state = DownloadManager::default();
+
+    while rw.is_open() {
+        while let Some(ev) = rw.poll_event() {
+            sf_egui.add_event(&ev);
+            if matches!(ev, Event::Closed) {
+                state.show_window = false;
+                state.popups.download.show = false;
+            }
+        }
+
+        if state.show_window {
+            rw.set_visible(true)
+        } else {
+            rw.set_visible(false)
+        }
+
+        sf_egui
+            .do_frame(&mut rw, |ctx| {
+                state.update(ctx);
+            })
+            .unwrap();
+        rw.clear(Color::BLACK);
+        sf_egui.draw(&mut rw, None);
+        rw.display();
+    }
 }
 
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
-        if ctx.input(|i| i.viewport().close_requested()) {
-            self.tray_menu
-                .channel
-                .0
-                .send(tray::Message::Quit)
-                .expect("Couldn't exit tray")
-        }
-        set_total_bandwidth(self);
-        check_connection(self);
-        run_downloads(self);
-        check_urls(self);
-        handle_popups(self, ctx);
-        handle_tray_events(self);
-        egui::TopBottomPanel::top(Id::new("Top"))
-            .exact_height(40.0)
-            .frame(egui::Frame::none().fill(*DARKER_PURPLE))
-            .show_separator_line(false)
-            .show(ctx, |ui| {
-                ui.vertical(|ui| {
-                    ui.add_space(7.0);
-                });
-                init_menu_bar(self, ui);
-            });
-        egui::CentralPanel::default()
-            .frame(
-                egui::Frame::none()
-                    .fill(*PURPLE)
-                    .inner_margin(TokyoNight.margin_style())
-                    .stroke(egui::Stroke::new(
-                        1.0,
-                        TokyoNight.bg_secondary_color_visuals(),
-                    )),
-            )
-            .show(ctx, |ui| {
-                lay_table(self, ui, ctx);
-            });
-        egui::TopBottomPanel::bottom(Id::new("Bottom"))
-            .exact_height(40.0)
-            .show_separator_line(false)
-            .frame(egui::Frame::none().fill(*DARKER_PURPLE))
-            .show(ctx, |ui| {
-                init_status_bar(self, ui);
-            });
-    }
+fn setup_custom_fonts(ctx: &Context) {
+    let mut fonts = FontDefinitions::default();
+    egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+    fonts.font_data.insert(
+        "my_font".to_owned(),
+        FontData::from_static(include_bytes!("../JetBrainsMono-Regular.ttf")),
+    );
+
+    fonts
+        .families
+        .entry(egui_sfml::egui::FontFamily::Proportional)
+        .or_default()
+        .insert(0, "my_font".to_owned());
+
+    fonts
+        .families
+        .entry(egui_sfml::egui::FontFamily::Monospace)
+        .or_default()
+        .insert(0, "my_font".to_owned());
+    ctx.set_fonts(fonts);
 }

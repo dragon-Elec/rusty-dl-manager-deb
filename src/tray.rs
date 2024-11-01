@@ -1,17 +1,17 @@
-use std::{
-    borrow::Borrow,
-    sync::mpsc::{self, Receiver, SyncSender},
-};
+use std::sync::mpsc::{self, Receiver, SyncSender};
 
 use tray_item::{IconSource, TrayItem};
 
-use crate::MyApp;
+use crate::DownloadManager;
 
 #[derive(PartialEq, Eq, Default, Debug)]
 pub enum Message {
     #[default]
     None,
+    Show,
     Quit,
+    Hide,
+    AddDl,
 }
 pub struct Tray {
     pub message: Message,
@@ -37,11 +37,31 @@ impl Default for Tray {
         };
         let mut tray = TrayItem::new("File Download manager", icon_red).unwrap();
         let channel = mpsc::sync_channel::<Message>(2);
+
+        let add_dl_tx = channel.0.clone();
+        tray.add_menu_item("Add Download", move || {
+            add_dl_tx.send(Message::AddDl).unwrap();
+        })
+        .unwrap();
+
+        let show_tx: SyncSender<Message> = channel.0.clone();
+        tray.add_menu_item("Show", move || {
+            show_tx.send(Message::Show).unwrap();
+        })
+        .unwrap();
+
+        let hide_tx: SyncSender<Message> = channel.0.clone();
+        tray.add_menu_item("Hide", move || {
+            hide_tx.send(Message::Hide).unwrap();
+        })
+        .unwrap();
+
         let quit_tx = channel.0.clone();
         tray.add_menu_item("Exit", move || {
             quit_tx.send(Message::Quit).unwrap();
         })
         .unwrap();
+
         Self {
             tray,
             message: Message::default(),
@@ -50,11 +70,14 @@ impl Default for Tray {
     }
 }
 
-pub fn handle_tray_events(interface: &mut MyApp) {
+pub fn handle_tray_events(interface: &mut DownloadManager) {
     if let Ok(msg) = interface.tray_menu.channel.1.try_recv() {
         match msg {
-            Message::None => {}
+            Message::AddDl => interface.popups.download.show = true,
+            Message::Show => interface.show_window = true,
+            Message::Hide => interface.show_window = false,
             Message::Quit => std::process::exit(0),
+            _ => {}
         }
     }
 }

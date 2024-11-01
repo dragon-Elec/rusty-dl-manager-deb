@@ -1,4 +1,4 @@
-use eframe::egui::Color32;
+use egui_sfml::egui::Color32;
 use lazy_static::lazy_static;
 
 lazy_static! {

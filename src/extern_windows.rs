@@ -1,13 +1,15 @@
-use std::sync::{atomic::AtomicUsize, Arc};
-
-use eframe::egui::{self, Align2, Button, Color32, Layout, Pos2, RichText, TextEdit, Vec2};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_plot::{Legend, Line};
+use egui_sfml::egui::{
+    vec2, Align2, Button, Color32, ComboBox, Context, Frame, Layout, Pos2, RichText, Stroke,
+    TextEdit, Vec2, Window,
+};
+use std::sync::{atomic::AtomicUsize, Arc};
 
 use crate::{
-    colors::{CYAN, DARKER_PURPLE, DARK_INNER, GRAY, RED},
+    colors::{CYAN, DARKER_PURPLE, DARK_INNER, GRAY, PURPLE, RED},
     dl::{file2dl::File2Dl, metadata::init_metadata},
-    Actions, FDl, MyApp,
+    Actions, DownloadManager, FDl,
 };
 
 #[derive(Default)]
@@ -16,28 +18,27 @@ pub struct Bandwidth {
     pub history: Vec<usize>,
 }
 
-pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
-    let window_size = egui::vec2(250.0, 200.0);
+pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
+    let window_size = vec2(250.0, 200.0);
     let pos = Pos2::new(
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
-    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-        egui::UserAttentionType::Critical,
-    ));
-    egui::Window::new("Add Download")
+
+    interface.show_window = true;
+    Window::new("Add Download")
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .default_size(window_size)
         .resizable(false)
         .movable(true)
         .frame(
-            egui::Frame::default()
+            Frame::default()
                 .fill(*DARKER_PURPLE)
                 .inner_margin(TokyoNight.margin_style())
-                .stroke(egui::Stroke::new(
+                .stroke(Stroke::new(
                     1.0,
-                    TokyoNight.bg_secondary_color_visuals(),
+                    Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
         .title_bar(false)
@@ -61,7 +62,7 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                 ui.scope(|ui| {
                     ui.visuals_mut().extreme_bg_color = *CYAN;
                     let single_line = TextEdit::singleline(&mut interface.popups.download.link)
-                        .text_color(*GRAY)
+                        .text_color(*PURPLE)
                         .hint_text("Link")
                         .desired_width(350.0);
                     ui.add(single_line);
@@ -97,7 +98,7 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
                         visuals.widgets.hovered.fg_stroke.color = *DARK_INNER;
                         visuals.widgets.active.fg_stroke.color = *DARK_INNER;
                         visuals.override_text_color = Some(*DARK_INNER);
-                        egui::ComboBox::from_label("")
+                        ComboBox::from_label("")
                             .width(370.0)
                             .selected_text(format!("{:?}", &interface.temp_action))
                             .show_ui(ui, |ui| {
@@ -201,24 +202,24 @@ pub fn show_input_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
         });
 }
 
-pub fn show_error_window(ctx: &eframe::egui::Context, interface: &mut MyApp, error: &str) {
-    let window_size = egui::vec2(250.0, 200.0);
+pub fn show_error_window(ctx: &Context, interface: &mut DownloadManager, error: &str) {
+    let window_size = vec2(250.0, 200.0);
     let pos = Pos2::new(
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
-    egui::Window::new("Error Window")
+    Window::new("Error Window")
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .default_size(window_size)
         .movable(true)
         .frame(
-            egui::Frame::none()
+            Frame::none()
                 .fill(*DARKER_PURPLE)
                 .inner_margin(TokyoNight.margin_style())
-                .stroke(egui::Stroke::new(
+                .stroke(Stroke::new(
                     1.0,
-                    TokyoNight.bg_secondary_color_visuals(),
+                    Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
         .resizable(false)
@@ -241,29 +242,29 @@ pub fn show_error_window(ctx: &eframe::egui::Context, interface: &mut MyApp, err
 }
 
 pub fn show_confirm_window(
-    ctx: &eframe::egui::Context,
-    interface: &mut MyApp,
+    ctx: &Context,
+    interface: &mut DownloadManager,
     color: Color32,
     text: &str,
-    action: Box<dyn FnOnce(&mut MyApp) + 'static>,
+    action: Box<dyn FnOnce(&mut DownloadManager) + 'static>,
 ) {
-    let window_size = egui::vec2(250.0, 200.0);
+    let window_size = vec2(250.0, 200.0);
     let pos = Pos2::new(
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
-    egui::Window::new("Confirm")
+    Window::new("Confirm")
         .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .movable(true)
         .frame(
-            egui::Frame::none()
+            Frame::none()
                 .fill(*DARKER_PURPLE)
                 .inner_margin(TokyoNight.margin_style())
-                .stroke(egui::Stroke::new(
+                .stroke(Stroke::new(
                     1.0,
-                    TokyoNight.bg_secondary_color_visuals(),
+                    Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
         .resizable(false)
@@ -271,7 +272,7 @@ pub fn show_confirm_window(
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.colored_label(*CYAN, "Are u sure?");
-                ui.label(egui::RichText::new(text).strong().color(color));
+                ui.label(RichText::new(text).strong().color(color));
             });
             ui.separator();
             ui.add_space(10.0);
@@ -295,25 +296,25 @@ pub fn show_confirm_window(
         });
 }
 
-pub fn show_plot_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
-    let window_size = egui::vec2(
+pub fn show_plot_window(ctx: &Context, interface: &mut DownloadManager) {
+    let window_size = vec2(
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.0,
     );
     let pos = Pos2::new(window_size.x, window_size.y);
-    egui::Window::new("Error Window")
+    Window::new("Error Window")
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .default_size(window_size)
         .resizable(false)
         .movable(true)
         .frame(
-            egui::Frame::none()
+            Frame::none()
                 .fill(*DARKER_PURPLE)
                 .inner_margin(TokyoNight.margin_style())
-                .stroke(egui::Stroke::new(
+                .stroke(Stroke::new(
                     1.0,
-                    TokyoNight.bg_secondary_color_visuals(),
+                    Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
         .resizable(false)
@@ -350,24 +351,24 @@ pub fn show_plot_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
         });
 }
 
-pub fn show_modify_speed_window(ctx: &eframe::egui::Context, interface: &mut MyApp) {
-    let window_size = egui::vec2(250.0, 200.0);
+pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) {
+    let window_size = vec2(250.0, 200.0);
     let pos = Pos2::new(
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
-    egui::Window::new("Confirm")
+    Window::new("Confirm")
         .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .movable(true)
         .frame(
-            egui::Frame::none()
+            Frame::none()
                 .fill(*DARKER_PURPLE)
                 .inner_margin(TokyoNight.margin_style())
-                .stroke(egui::Stroke::new(
+                .stroke(Stroke::new(
                     1.0,
-                    TokyoNight.bg_secondary_color_visuals(),
+                    Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
         .resizable(false)
@@ -386,7 +387,7 @@ pub fn show_modify_speed_window(ctx: &eframe::egui::Context, interface: &mut MyA
                 });
             }
             ui.separator();
-            ui.with_layout(Layout::left_to_right(egui::Align::LEFT), |ui| {
+            ui.with_layout(Layout::left_to_right(egui_sfml::egui::Align::LEFT), |ui| {
                 ui.scope(|ui| {
                     ui.visuals_mut().extreme_bg_color = *CYAN;
                     ui.visuals_mut().override_text_color = Some(*GRAY);
@@ -423,7 +424,7 @@ pub fn show_modify_speed_window(ctx: &eframe::egui::Context, interface: &mut MyA
                 }
             });
             ui.add_space(10.0);
-            ui.with_layout(Layout::left_to_right(egui::Align::LEFT), |ui| {
+            ui.with_layout(Layout::left_to_right(egui_sfml::egui::Align::LEFT), |ui| {
                 ui.visuals_mut().override_text_color = Some(*DARK_INNER);
                 let text = RichText::new(egui_phosphor::regular::CHECK).size(20.0);
                 let button = Button::new(text).fill(*CYAN);

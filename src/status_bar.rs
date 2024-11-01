@@ -1,5 +1,5 @@
-use crate::{colors::*, MyApp};
-use eframe::egui::{self, Button, CursorIcon, Label, Layout, RichText, Separator, Ui};
+use crate::{colors::*, DownloadManager};
+use egui_sfml::egui::{self, Button, CursorIcon, Label, Layout, RichText, Separator, Ui};
 use std::{
     net::TcpStream,
     sync::mpsc::{channel, Receiver, Sender},
@@ -23,7 +23,7 @@ impl Default for Connection {
     }
 }
 
-pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
+pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
     ui.with_layout(Layout::right_to_left(egui::Align::RIGHT), |ui| {
         ui.add_space(10.0);
         ui.horizontal_centered(|ui| {
@@ -55,7 +55,7 @@ pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
         ui.add_space(ui.available_width() - 80.0);
         ui.horizontal_centered(|ui| {
             {
-                let text = eframe::egui::RichText::new(egui_phosphor::fill::NETWORK)
+                let text = egui_sfml::egui::RichText::new(egui_phosphor::fill::NETWORK)
                     .size(25.0)
                     .color(*DARK_INNER);
                 let butt = Button::new(text).fill(*CYAN).rounding(25.0);
@@ -70,7 +70,7 @@ pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
                     interface.popups.speed.show = true;
                 }
             }
-            let text = eframe::egui::RichText::new(egui_phosphor::fill::CHART_LINE_UP)
+            let text = egui_sfml::egui::RichText::new(egui_phosphor::fill::CHART_LINE_UP)
                 .size(25.0)
                 .color(*DARK_INNER);
             let butt = Button::new(text).fill(*CYAN).rounding(25.0);
@@ -89,7 +89,7 @@ pub fn init_status_bar(interface: &mut MyApp, ui: &mut Ui) {
     });
 }
 
-pub fn check_connection(interface: &mut MyApp) {
+pub fn check_connection(interface: &mut DownloadManager) {
     if !interface.connection.initiated {
         let tx = interface.connection.channel.0.clone();
         interface.runtime.spawn(async move {
