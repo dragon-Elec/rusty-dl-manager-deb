@@ -100,6 +100,6 @@ fn construct_tray() -> TrayItem {
     }
     #[cfg(target_os = "windows")]
     {
-        TrayItem::new("File Download Manager", IconSource::Resource("../icon.png")).unwrap()
+        TrayItem::new("File Download Manager", IconSource::Resource("icon")).unwrap()
     }
 }

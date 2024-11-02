@@ -11,7 +11,6 @@ use egui_sfml::{
     },
     SfEgui,
 };
-use env_logger::{init, Logger};
 use extern_windows::Bandwidth;
 use menu_bar::init_menu_bar;
 use popups::*;
@@ -163,7 +162,6 @@ fn main() {
         antialiasing_level: 0,
         ..Default::default()
     };
-    init();
     let mut rw = RenderWindow::new(init_size, title, Style::DEFAULT, settings).unwrap();
     rw.set_framerate_limit(60);
 
