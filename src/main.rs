@@ -15,12 +15,7 @@ use menu_bar::init_menu_bar;
 use popups::*;
 use server::interception::init_server;
 use status_bar::{check_connection, init_status_bar, Connection};
-use std::{
-    fs::remove_file,
-    path::Path,
-    sync::mpsc::{channel, Receiver, Sender},
-    time::Duration,
-};
+use std::{fs::remove_file, path::Path, sync::mpsc::channel, time::Duration};
 use table::lay_table;
 use tokio::runtime::{self, Runtime};
 use tray::{handle_tray_events, Message, Tray};
@@ -39,7 +34,6 @@ mod tray;
 struct DownloadManager {
     runtime: Runtime,
     files: Vec<FDl>,
-    urls: (Sender<String>, Receiver<String>),
     popups: PopUps,
     temp_action: Actions,
     search: String,
@@ -113,7 +107,6 @@ impl DownloadManager {
         Self {
             runtime,
             files,
-            urls: channel(),
             popups,
             temp_action: Actions::default(),
             search: String::default(),
@@ -160,11 +153,6 @@ struct FDl {
 }
 
 fn main() {
-    let path = Path::new("urls.txt");
-    if path.exists() {
-        remove_file(path).expect("Couldn't remove urls file");
-    }
-
     let mut init_size = (860, 480);
     let title = "Rusty Dl Manager";
     let settings = &ContextSettings {
@@ -173,8 +161,8 @@ fn main() {
         antialiasing_level: 0,
         ..Default::default()
     };
-    let mut rw = RenderWindow::new(init_size, title, Style::DEFAULT, settings).unwrap();
 
+    let mut rw = RenderWindow::new(init_size, title, Style::DEFAULT, settings).unwrap();
     rw.set_framerate_limit(60);
 
     let mut sf_egui = SfEgui::new(&rw);

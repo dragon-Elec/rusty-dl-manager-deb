@@ -1,4 +1,4 @@
-use std::{fs::OpenOptions, io::Write};
+use std::sync::Mutex;
 
 use poem::{handler, http::StatusCode, listener::TcpListener, post, web::Json, Route, Server};
 use serde::Deserialize;
@@ -8,22 +8,15 @@ struct Url {
     value: String,
 }
 
+pub static SERVER_STATE: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
 #[handler]
 fn get_url(res: Json<Url>) -> String {
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open("urls.txt")
-        .expect("Unable to open file");
-
-    let line = format!("{}\n", res.value);
-    file.write_all(line.as_bytes())
-        .expect("Unable to write to file");
-    let text = format!("Received: {}", res.value);
-    text
+    let mut state = SERVER_STATE.try_lock().unwrap();
+    state.push(res.value.clone());
+    format!("Received: {}", res.value)
 }
 
-// Handler for HEAD requests
 #[handler]
 fn handle_head() -> StatusCode {
     StatusCode::OK
@@ -36,7 +29,6 @@ pub async fn init_server() -> Result<(), std::io::Error> {
     }
     tracing_subscriber::fmt::init();
 
-    // Add routes for both POST and HEAD methods
     let app = Route::new().at("/", post(get_url).head(handle_head));
 
     Server::new(TcpListener::bind("0.0.0.0:3000"))

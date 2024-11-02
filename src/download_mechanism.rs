@@ -1,42 +1,24 @@
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::Path,
-    thread::sleep,
-    time::Duration,
-};
+use std::{thread::sleep, time::Duration};
 
-use crate::DownloadManager;
+use crate::{server::interception::SERVER_STATE, DownloadManager};
 
 pub fn check_urls(interface: &mut DownloadManager) {
-    let tx = interface.urls.0.clone();
-    interface.runtime.spawn(async move {
-        if Path::new("urls.txt").exists() {
-            let mut file = File::open("urls.txt").expect("Couldn't open file");
-            let mut buffer = String::default();
-            file.read_to_string(&mut buffer)
-                .expect("Couldn't read file");
+    if let Ok(mut locked) = SERVER_STATE.try_lock() {
+        let mut links = locked.clone();
 
-            if !buffer.is_empty() {
-                tx.send(buffer).expect("Couldn't send");
-            }
-        }
-    });
-    if let Ok(val) = interface.urls.1.try_recv() {
-        let mut lines = val.lines();
         if !interface.popups.download.show {
-            if let Some(line) = lines.next() {
-                interface.popups.download.link = line.to_string();
+            if let Some(link) = links.first() {
+                interface.popups.download.link = link.clone();
                 interface.popups.download.show = true;
-                let remaining_urls: Vec<&str> = lines.collect();
-                let mut file = File::create("urls.txt").expect("Couldn't create");
-                for url in remaining_urls {
-                    file.write_all(url.as_bytes()).expect("Couldn't write");
-                }
+
+                links.remove(0);
+
+                *locked = links;
             }
         }
     }
 }
+
 pub fn set_total_bandwidth(interface: &mut DownloadManager) {
     let size: usize = interface
         .files
