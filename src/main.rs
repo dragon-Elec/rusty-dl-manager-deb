@@ -1,3 +1,4 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use colors::{DARKER_PURPLE, PURPLE};
 use dl::file2dl::File2Dl;
 use download_mechanism::{check_urls, run_downloads, set_total_bandwidth, Actions};
@@ -10,12 +11,13 @@ use egui_sfml::{
     },
     SfEgui,
 };
+use env_logger::{init, Logger};
 use extern_windows::Bandwidth;
 use menu_bar::init_menu_bar;
 use popups::*;
 use server::interception::init_server;
 use status_bar::{check_connection, init_status_bar, Connection};
-use std::{fs::remove_file, path::Path, sync::mpsc::channel, time::Duration};
+use std::{sync::mpsc::channel, time::Duration};
 use table::lay_table;
 use tokio::runtime::{self, Runtime};
 use tray::{handle_tray_events, Message, Tray};
@@ -161,7 +163,7 @@ fn main() {
         antialiasing_level: 0,
         ..Default::default()
     };
-
+    init();
     let mut rw = RenderWindow::new(init_size, title, Style::DEFAULT, settings).unwrap();
     rw.set_framerate_limit(60);
 

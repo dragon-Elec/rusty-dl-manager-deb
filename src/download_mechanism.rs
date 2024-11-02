@@ -1,17 +1,28 @@
+use crate::{server::interception::SERVER_STATE, DownloadManager};
 use std::{thread::sleep, time::Duration};
 
-use crate::{server::interception::SERVER_STATE, DownloadManager};
+trait ConsumingIterator<T> {
+    fn next(&mut self) -> Option<T>;
+}
+
+impl<T> ConsumingIterator<T> for Vec<T> {
+    fn next(&mut self) -> Option<T> {
+        if !self.is_empty() {
+            Some(self.remove(0))
+        } else {
+            None
+        }
+    }
+}
 
 pub fn check_urls(interface: &mut DownloadManager) {
     if let Ok(mut locked) = SERVER_STATE.try_lock() {
         let mut links = locked.clone();
 
         if !interface.popups.download.show {
-            if let Some(link) = links.first() {
+            if let Some(link) = links.next() {
                 interface.popups.download.link = link.clone();
                 interface.popups.download.show = true;
-
-                links.remove(0);
 
                 *locked = links;
             }

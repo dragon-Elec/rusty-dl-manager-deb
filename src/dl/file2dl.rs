@@ -5,6 +5,7 @@ use super::{
 };
 use futures::StreamExt;
 use reqwest::{header::RANGE, Client, ClientBuilder, Error, Response};
+use std::sync::atomic::Ordering::Relaxed;
 use std::{
     fs::{create_dir, metadata, read_dir, File, OpenOptions},
     io::{Read, Write},
@@ -15,7 +16,6 @@ use std::{
     },
     time::Duration,
 };
-use std::{os::unix::fs::MetadataExt, sync::atomic::Ordering::Relaxed};
 use tokio::time::{sleep, Instant};
 
 #[derive(Debug, Default, Clone)]
@@ -228,7 +228,18 @@ fn get_metadata_files(dir: &str) -> Result<Vec<String>, std::io::Error> {
 }
 
 fn get_file_size(path: &PathBuf) -> Result<usize, std::io::Error> {
-    let metadata = metadata(path)?;
-    let size = metadata.size();
-    Ok(size as usize)
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let metadata = metadata(path)?;
+        let size = metadata.size();
+        Ok(size as usize)
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::MetadataExt;
+        let metadata = metadata(path)?;
+        let size = metadata.file_size();
+        Ok(size as usize)
+    }
 }

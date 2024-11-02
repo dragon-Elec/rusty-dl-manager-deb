@@ -1,11 +1,12 @@
-use std::{os::unix::process::CommandExt, process::Command};
-
 use crate::{
     colors::{CYAN, DARK_INNER, GRAY},
     dl::file2dl::File2Dl,
     Actions, DownloadManager,
 };
 use egui_extras::{Column, TableBuilder};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+use std::process::Command;
 
 use egui_sfml::egui::*;
 use irox_egui_extras::progressbar::ProgressBar;
@@ -148,10 +149,10 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                                 }
                             }
                             Actions::Reboot if complete => {
-                                let _ = Command::new("reboot").exec();
+                                reboot_system();
                             }
                             Actions::Shutdown if complete => {
-                                let _ = Command::new("reboot").exec();
+                                shutdown_system();
                             }
                             _ => {}
                         }
@@ -305,4 +306,34 @@ fn file_name(file: &File2Dl, ui: &mut Ui) {
             ui.add(label);
         })
     });
+}
+
+fn reboot_system() {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = Command::new("reboot").exec();
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("shutdown")
+            .args(&["/r", "/t", "0"])
+            .spawn()
+            .expect("Failed to reboot");
+    }
+}
+
+fn shutdown_system() {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = Command::new("shutdown").arg("now").exec();
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("shutdown")
+            .args(&["/s", "/t", "0"])
+            .spawn()
+            .expect("Failed to shutdown");
+    }
 }

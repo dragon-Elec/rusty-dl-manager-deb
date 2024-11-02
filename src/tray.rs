@@ -21,23 +21,8 @@ pub struct Tray {
 
 impl Default for Tray {
     fn default() -> Self {
-        let (icon_rgba, icon_width, icon_height) = {
-            let img_bytes = include_bytes!("../icon.png").to_vec();
-            let image = image::load_from_memory(&img_bytes)
-                .expect("Failed loading img from mem")
-                .into_rgba8();
-            let (width, height) = image.dimensions();
-            let rgba = image.into_raw();
-            (rgba, width, height)
-        };
-        let icon_red = IconSource::Data {
-            data: icon_rgba,
-            height: icon_height as i32,
-            width: icon_width as i32,
-        };
-        let mut tray = TrayItem::new("File Download manager", icon_red).unwrap();
         let channel = mpsc::sync_channel::<Message>(2);
-
+        let mut tray = construct_tray();
         let add_dl_tx = channel.0.clone();
         tray.add_menu_item("Add Download", move || {
             add_dl_tx.send(Message::AddDl).unwrap();
@@ -91,5 +76,30 @@ pub fn handle_tray_events(interface: &mut DownloadManager) {
             Message::Quit => std::process::exit(0),
             _ => {}
         }
+    }
+}
+
+fn construct_tray() -> TrayItem {
+    #[cfg(target_os = "linux")]
+    {
+        let (icon_rgba, icon_width, icon_height) = {
+            let img_bytes = include_bytes!("../icon.png").to_vec();
+            let image = image::load_from_memory(&img_bytes)
+                .expect("Failed loading img from mem")
+                .into_rgba8();
+            let (width, height) = image.dimensions();
+            let rgba = image.into_raw();
+            (rgba, width, height)
+        };
+        let icon = IconSource::Data {
+            data: icon_rgba,
+            height: icon_height as i32,
+            width: icon_width as i32,
+        };
+        TrayItem::new("File Download Manager", icon).unwrap()
+    }
+    #[cfg(target_os = "windows")]
+    {
+        TrayItem::new("File Download Manager", IconSource::Resource("../icon.png")).unwrap()
     }
 }
