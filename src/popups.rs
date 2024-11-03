@@ -4,7 +4,7 @@ use crate::{
         show_confirm_window, show_error_window, show_input_window, show_log_window,
         show_modify_speed_window, show_plot_window, show_settings_window,
     },
-    DownloadManager, Settings,
+    DownloadManager,
 };
 use egui_sfml::egui::Color32;
 use std::sync::mpsc::{channel, Receiver, Sender};

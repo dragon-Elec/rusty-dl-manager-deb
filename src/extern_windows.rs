@@ -4,6 +4,7 @@ use egui_sfml::egui::{
     frame, vec2, Align2, Button, Color32, ComboBox, Context, CursorIcon, Frame, Label, Layout,
     Pos2, RichText, ScrollArea, Separator, Stroke, TextEdit, Vec2, Window,
 };
+use native_dialog::FileDialog;
 use serde_json::json;
 use std::{
     fs::OpenOptions,
@@ -565,12 +566,34 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                 ui.scope(|ui| {
                     ui.visuals_mut().extreme_bg_color = *CYAN;
                     ui.visuals_mut().override_text_color = Some(*DARKER_PURPLE);
-                    let hint = RichText::new("Download directory").color(*GRAY);
-                    let dl_dir =
-                        TextEdit::singleline(&mut interface.popups.settings.dl_dir).hint_text(hint);
-                    ui.add_sized((310.0, 28.0), dl_dir);
+                    ui.horizontal(|ui| {
+                        ui.add_space(80.0);
+                        let hint = RichText::new("Download directory").color(*GRAY);
+                        let dl_dir = TextEdit::singleline(&mut interface.popups.settings.dl_dir)
+                            .hint_text(hint);
+                        let btn_txt = RichText::new(egui_phosphor::regular::DOTS_THREE)
+                            .color(*DARKER_PURPLE)
+                            .size(20.0);
+                        let btn = Button::new(btn_txt).fill(*CYAN);
+                        ui.add_sized((270.0, 28.0), dl_dir);
+                        let res = ui.add(btn);
+                        if res.clicked() {
+                            let path = FileDialog::new().show_open_single_dir().unwrap();
+                            match path {
+                                Some(path) => {
+                                    interface.popups.settings.dl_dir =
+                                        path.to_string_lossy().to_string();
+                                }
+                                None => {
+                                    interface.popups.settings.error =
+                                        String::from("Couldnt't accept this dir");
+                                    interface.popups.log.text.push_str("Couldnt' set dir\n");
+                                }
+                            };
+                        }
+                    });
                     ui.add_space(20.0);
-                    let hint = RichText::new("Download retry interval").color(*GRAY);
+                    let hint = RichText::new("Download retry interval in secs").color(*GRAY);
                     let temp_str = TextEdit::singleline(&mut interface.popups.settings.temp_str)
                         .hint_text(hint);
                     ui.add_sized((310.0, 28.0), temp_str);
@@ -583,17 +606,26 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                 let button = Button::new(text).fill(*CYAN);
                 let res = ui.add(button);
                 if res.clicked() {
-                    match interface.popups.settings.temp_str.parse::<u64>() {
-                        Ok(val) => interface.settings.retry_interval = val,
-                        Err(e) => {
-                            interface.popups.settings.error = e.to_string();
-                            return;
-                        }
-                    };
+                    if !interface.popups.settings.temp_str.is_empty() {
+                        match interface.popups.settings.temp_str.parse::<u64>() {
+                            Ok(val) => interface.settings.retry_interval = val,
+                            Err(e) => {
+                                let error = e.to_string();
+                                interface.popups.log.text.push_str(&error);
+                                interface.popups.settings.error = error;
+                                return;
+                            }
+                        };
+                    } else {
+                        interface.settings.retry_interval = 5;
+                    }
+
                     if Path::new(&interface.popups.settings.dl_dir).is_dir() {
                         interface.settings.dl_dir = interface.popups.settings.dl_dir.clone();
                     } else {
-                        interface.popups.settings.error = String::from("Not a valid dir");
+                        let text = String::from("Not a valid dir");
+                        interface.popups.log.text.push_str(&text);
+                        interface.popups.settings.error = text;
                         return;
                     }
 
@@ -606,27 +638,34 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                     match file {
                         Ok(mut f) => {
                             if let Err(e) = f.write_all(settings.as_bytes()) {
-                                interface.popups.settings.error =
-                                    format!("Couldn't write to file: {:?}", e);
+                                let text = format!("Couldn't write to file: {:?}", e);
+                                interface.popups.log.text.push_str(&text);
+                                interface.popups.settings.error = text;
+
                                 return;
                             } else {
                                 match DownloadManager::load_files(&interface.settings) {
                                     Ok(fs) => {
                                         interface.popups.settings.show = false;
-                                        interface.files = fs
+                                        interface.files = fs;
+                                        interface.popups.log.text.push_str("Updated log\n");
                                     }
                                     Err(e) => {
-                                        interface.popups.settings.error = format!(
-                                            "Couldn't gather new files after dir change: {:?}",
+                                        let text = format!(
+                                            "Couldn't load new files after dir change: {:?}",
                                             e
                                         );
+                                        interface.popups.log.text.push_str(&text);
+                                        interface.popups.settings.error = text;
                                         return;
                                     }
                                 }
                             }
                         }
                         Err(e) => {
-                            interface.popups.settings.error = format!("File open error: {:?}", e);
+                            let text = format!("File open error: {:?}", e);
+                            interface.popups.log.text.push_str(&text);
+                            interface.popups.settings.error = text;
                             return;
                         }
                     }
