@@ -1,4 +1,10 @@
-use crate::{server::interception::SERVER_STATE, DownloadManager, Settings};
+use chrono::Local;
+
+use crate::{
+    colors::{GREEN, RED},
+    server::interception::SERVER_STATE,
+    DownloadManager,
+};
 use std::{
     thread::sleep,
     time::{Duration, Instant},
@@ -62,10 +68,12 @@ pub fn run_downloads(interface: &mut DownloadManager) {
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
         let new = fdl.new;
         let is_running = file.running.load(std::sync::atomic::Ordering::Relaxed);
+
         let speed = fdl
             .file
             .bytes_per_sec
             .load(std::sync::atomic::Ordering::Relaxed);
+
         if complete {
             fdl.has_error = false;
         }
@@ -77,9 +85,17 @@ pub fn run_downloads(interface: &mut DownloadManager) {
             fdl.toggled_at = Instant::now();
         }
         let retry_interval = interface.settings.retry_interval;
+        let now = Local::now();
+        let formatted_time = now.format("%H:%M:%S").to_string();
         if !complete && !&fdl.initiated {
             let file = file.clone();
             let tx_error = interface.popups.error.channel.0.clone();
+            let log_msg = format!("Started Downloading: {}", &file.url.link);
+            interface
+                .popups
+                .log
+                .logs
+                .push((formatted_time.clone(), log_msg, *GREEN));
             interface.runtime.spawn(async move {
                 if file.url.range_support {
                     loop {
@@ -108,7 +124,7 @@ pub fn run_downloads(interface: &mut DownloadManager) {
 
         if let Ok(err) = interface.popups.error.channel.1.try_recv() {
             fdl.has_error = true;
-            interface.popups.log.text.push_str(&err);
+            interface.popups.log.logs.push((formatted_time, err, *RED));
             interface.popups.log.has_error = true;
         }
     }

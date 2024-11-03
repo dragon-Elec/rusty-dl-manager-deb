@@ -1,3 +1,4 @@
+use chrono::Local;
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_plot::{Legend, Line};
 use egui_sfml::egui::{
@@ -17,7 +18,7 @@ use std::{
 use crate::{
     colors::{CYAN, DARKER_PURPLE, DARK_INNER, GRAY, PURPLE, RED},
     dl::{file2dl::File2Dl, metadata::init_metadata},
-    Actions, DownloadManager, FDl, Settings,
+    Actions, DownloadManager, FDl,
 };
 
 #[derive(Default)]
@@ -34,7 +35,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
     );
     interface.show_window = true;
     let dl_dir = interface.settings.dl_dir.clone();
-    Window::new("Add Download")
+    Window::new("Download window")
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .default_size(window_size)
@@ -264,11 +265,12 @@ pub fn show_confirm_window(
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
-    Window::new("Confirm")
+    Window::new("Confirm Window")
         .fixed_size(window_size)
         .pivot(Align2::CENTER_CENTER)
         .fixed_pos(pos)
         .resizable(true)
+        .movable(true)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -310,7 +312,7 @@ pub fn show_plot_window(ctx: &Context, interface: &mut DownloadManager) {
         ctx.available_rect().height() / 2.0,
     );
     let pos = Pos2::new(window_size.x, window_size.y);
-    Window::new("Error Window")
+    Window::new("Plot Window")
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .default_size(window_size)
@@ -365,7 +367,7 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
-    Window::new("Confirm")
+    Window::new("Speed Window")
         .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
@@ -481,8 +483,9 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.0,
     );
+    let logs = interface.popups.log.logs.clone();
     let pos = Pos2::new(window_size.x, window_size.y);
-    Window::new("Error Window")
+    Window::new("Log Window")
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .fixed_size(window_size)
@@ -522,11 +525,12 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
                 frame::Frame::none().fill(*PURPLE).show(ui, |ui| {
                     ui.set_width(ui.available_width());
                     ui.set_height(ui.available_height());
-                    ScrollArea::both().show(ui, |ui| {
+                    ScrollArea::both().min_scrolled_width(10.0).show(ui, |ui| {
                         ui.vertical(|ui| {
-                            ui.add(Label::new(
-                                RichText::new(&interface.popups.log.text).color(*RED),
-                            ));
+                            for log in logs {
+                                let formatted = format!("{}: {}", log.0, log.1);
+                                ui.add(Label::new(RichText::new(formatted).color(log.2)));
+                            }
                         });
                     })
                 })
@@ -540,7 +544,7 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
         ctx.available_rect().height() / 2.0,
     );
     let pos = Pos2::new(window_size.x, window_size.y);
-    Window::new("Error Window")
+    Window::new("Settings window")
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .fixed_size(window_size)
@@ -557,48 +561,54 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
         .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
+            let now = Local::now();
+            let formatted_time = now.format("%H:%M:%S").to_string();
             ui.vertical_centered(|ui| {
                 ui.colored_label(*CYAN, "Change settings");
                 if !interface.popups.settings.error.is_empty() {
                     ui.colored_label(*RED, &interface.popups.settings.error);
                 }
-                ui.add_space(20.0);
-                ui.scope(|ui| {
+                ui.horizontal(|ui| {
+                    ui.add_space(ui.available_width() / 2.0 - 155.0);
                     ui.visuals_mut().extreme_bg_color = *CYAN;
                     ui.visuals_mut().override_text_color = Some(*DARKER_PURPLE);
-                    ui.horizontal(|ui| {
-                        ui.add_space(80.0);
-                        let hint = RichText::new("Download directory").color(*GRAY);
-                        let dl_dir = TextEdit::singleline(&mut interface.popups.settings.dl_dir)
-                            .hint_text(hint);
-                        let btn_txt = RichText::new(egui_phosphor::regular::DOTS_THREE)
-                            .color(*DARKER_PURPLE)
-                            .size(20.0);
-                        let btn = Button::new(btn_txt).fill(*CYAN);
-                        ui.add_sized((270.0, 28.0), dl_dir);
-                        let res = ui.add(btn);
-                        if res.clicked() {
-                            let path = FileDialog::new().show_open_single_dir().unwrap();
-                            match path {
-                                Some(path) => {
-                                    interface.popups.settings.dl_dir =
-                                        path.to_string_lossy().to_string();
-                                }
-                                None => {
-                                    interface.popups.settings.error =
-                                        String::from("Couldnt't accept this dir");
-                                    interface.popups.log.text.push_str("Couldnt' set dir\n");
-                                }
-                            };
-                        }
-                    });
-                    ui.add_space(20.0);
-                    let hint = RichText::new("Download retry interval in secs").color(*GRAY);
-                    let temp_str = TextEdit::singleline(&mut interface.popups.settings.temp_str)
-                        .hint_text(hint);
-                    ui.add_sized((310.0, 28.0), temp_str);
+                    let hint = RichText::new("Download directory").color(*GRAY);
+                    let dl_dir =
+                        TextEdit::singleline(&mut interface.popups.settings.dl_dir).hint_text(hint);
+                    let btn_txt = RichText::new(egui_phosphor::regular::DOTS_THREE)
+                        .color(*DARKER_PURPLE)
+                        .size(20.0);
+                    let btn = Button::new(btn_txt).fill(*CYAN);
+                    ui.add_sized((275.0, 28.0), dl_dir);
+                    let res = ui.add(btn);
+                    if res.clicked() {
+                        let path = FileDialog::new().show_open_single_dir().unwrap();
+                        match path {
+                            Some(path) => {
+                                interface.popups.settings.dl_dir =
+                                    path.to_string_lossy().to_string();
+                            }
+                            None => {
+                                interface.popups.settings.error =
+                                    String::from("Couldn't accept this dir");
+                                interface.popups.log.logs.push((
+                                    formatted_time.clone(),
+                                    String::from("Couldn't set dir"),
+                                    *RED,
+                                ));
+                            }
+                        };
+                    }
                 });
-                ui.add_space(20.0);
+            });
+
+            ui.vertical_centered(|ui| {
+                ui.visuals_mut().extreme_bg_color = *CYAN;
+                ui.visuals_mut().override_text_color = Some(*DARKER_PURPLE);
+                let hint = RichText::new("Download retry interval in secs").color(*GRAY);
+                let temp_str =
+                    TextEdit::singleline(&mut interface.popups.settings.temp_str).hint_text(hint);
+                ui.add_sized((310.0, 28.0), temp_str);
             });
             ui.with_layout(Layout::left_to_right(egui_sfml::egui::Align::LEFT), |ui| {
                 ui.visuals_mut().override_text_color = Some(*DARK_INNER);
@@ -611,7 +621,11 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                             Ok(val) => interface.settings.retry_interval = val,
                             Err(e) => {
                                 let error = e.to_string();
-                                interface.popups.log.text.push_str(&error);
+                                interface.popups.log.logs.push((
+                                    formatted_time.clone(),
+                                    error.clone(),
+                                    *RED,
+                                ));
                                 interface.popups.settings.error = error;
                                 return;
                             }
@@ -624,7 +638,11 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                         interface.settings.dl_dir = interface.popups.settings.dl_dir.clone();
                     } else {
                         let text = String::from("Not a valid dir");
-                        interface.popups.log.text.push_str(&text);
+                        interface.popups.log.logs.push((
+                            formatted_time.clone(),
+                            text.clone(),
+                            *RED,
+                        ));
                         interface.popups.settings.error = text;
                         return;
                     }
@@ -639,7 +657,11 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                         Ok(mut f) => {
                             if let Err(e) = f.write_all(settings.as_bytes()) {
                                 let text = format!("Couldn't write to file: {:?}", e);
-                                interface.popups.log.text.push_str(&text);
+                                interface.popups.log.logs.push((
+                                    formatted_time.clone(),
+                                    text.clone(),
+                                    *RED,
+                                ));
                                 interface.popups.settings.error = text;
 
                                 return;
@@ -648,14 +670,22 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                                     Ok(fs) => {
                                         interface.popups.settings.show = false;
                                         interface.files = fs;
-                                        interface.popups.log.text.push_str("Updated log\n");
+                                        interface.popups.log.logs.push((
+                                            formatted_time.clone(),
+                                            String::from("Updated log"),
+                                            *RED,
+                                        ));
                                     }
                                     Err(e) => {
                                         let text = format!(
                                             "Couldn't load new files after dir change: {:?}",
                                             e
                                         );
-                                        interface.popups.log.text.push_str(&text);
+                                        interface.popups.log.logs.push((
+                                            formatted_time.clone(),
+                                            text.clone(),
+                                            *RED,
+                                        ));
                                         interface.popups.settings.error = text;
                                         return;
                                     }
@@ -664,7 +694,11 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                         }
                         Err(e) => {
                             let text = format!("File open error: {:?}", e);
-                            interface.popups.log.text.push_str(&text);
+                            interface.popups.log.logs.push((
+                                formatted_time.clone(),
+                                text.clone(),
+                                *RED,
+                            ));
                             interface.popups.settings.error = text;
                             return;
                         }

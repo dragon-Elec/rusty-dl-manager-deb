@@ -23,7 +23,7 @@ pub struct SettingsPopUp {
 #[derive(Default)]
 pub struct LogPopUp {
     pub has_error: bool,
-    pub text: String,
+    pub logs: Vec<(String, String, Color32)>,
     pub show: bool,
 }
 pub struct ConfirmPopUp {

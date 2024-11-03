@@ -2,6 +2,7 @@ use crate::{
     colors::{CYAN, GRAY, GREEN, PURPLE, RED},
     DownloadManager,
 };
+use chrono::Local;
 use egui_sfml::egui::{menu, Align, Color32, CursorIcon, Layout, RichText, TextEdit};
 use std::{fs::remove_file, path::Path};
 
@@ -136,15 +137,25 @@ fn delete_all_files_from_disk(interface: &mut DownloadManager) {
         let dir = &fdl.file.dl_dir;
         let path = format!("{dir}/{}", name_on_disk);
         let tmp_path = format!("{dir}/.{}.metadl", name_on_disk);
+        let now = Local::now();
+        let formatted_time = now.format("%H:%M:%S").to_string();
         if Path::new(&path).exists() {
             match remove_file(&path) {
                 Ok(_) => {
                     let text = format!("Deleted file: {}\n", path);
-                    interface.popups.log.text.push_str(&text);
+                    interface
+                        .popups
+                        .log
+                        .logs
+                        .push((formatted_time.clone(), text, *GREEN));
                 }
                 Err(e) => {
                     let err = format!("File Path: {}, Error: {}\n", path, e);
-                    interface.popups.log.text.push_str(&err);
+                    interface
+                        .popups
+                        .log
+                        .logs
+                        .push((formatted_time.clone(), err.clone(), *RED));
                     interface.popups.error.value = err;
                     interface.popups.error.show = true;
                     is_ok = false;
@@ -155,11 +166,19 @@ fn delete_all_files_from_disk(interface: &mut DownloadManager) {
             match remove_file(&tmp_path) {
                 Ok(_) => {
                     let text = format!("Deleted tmp file: {}\n", tmp_path);
-                    interface.popups.log.text.push_str(&text);
+                    interface
+                        .popups
+                        .log
+                        .logs
+                        .push((formatted_time.clone(), text, *GREEN));
                 }
                 Err(e) => {
                     let err = format!("File Path: {}, Error: {}\n", tmp_path, e);
-                    interface.popups.log.text.push_str(&err);
+                    interface
+                        .popups
+                        .log
+                        .logs
+                        .push((formatted_time, err.clone(), *RED));
                     interface.popups.error.value = err;
                     interface.popups.error.show = true;
                     is_ok = false;
@@ -174,16 +193,24 @@ fn delete_all_files_from_disk(interface: &mut DownloadManager) {
 fn remove_selected_from_disk(app: &mut DownloadManager) {
     app.files.retain(|core| {
         if core.selected {
+            let now = Local::now();
+            let formatted_time = now.format("%H:%M:%S").to_string();
             let path = format!("Downloads/{}", core.file.name_on_disk);
             let tmp_path = format!("Downloads/.{}.metadl", core.file.name_on_disk);
             match remove_file(&path) {
                 Ok(_) => {
                     let text = format!("File: {} was removed\n", &path);
-                    app.popups.log.text.push_str(&text);
+                    app.popups
+                        .log
+                        .logs
+                        .push((formatted_time.clone(), text, *GREEN));
                 }
                 Err(e) => {
                     let err = format!("File Path: {}, Error: {}\n", &path, e);
-                    app.popups.log.text.push_str(&err);
+                    app.popups
+                        .log
+                        .logs
+                        .push((formatted_time.clone(), err.clone(), *RED));
                     app.popups.error.value = err;
                     app.popups.error.show = true;
                 }
@@ -191,11 +218,14 @@ fn remove_selected_from_disk(app: &mut DownloadManager) {
             match remove_file(&tmp_path) {
                 Ok(_) => {
                     let text = format!("Tmp File: {} was removed\n", &tmp_path);
-                    app.popups.log.text.push_str(&text);
+                    app.popups.log.logs.push((formatted_time, text, *GREEN));
                 }
                 Err(e) => {
                     let err = format!("File Path: {}, Error: {}\n", &tmp_path, e);
-                    app.popups.log.text.push_str(&err);
+                    app.popups
+                        .log
+                        .logs
+                        .push((formatted_time, err.clone(), *RED));
                     app.popups.error.value = err;
                     app.popups.error.show = true;
                 }
