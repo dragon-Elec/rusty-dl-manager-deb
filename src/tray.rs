@@ -59,6 +59,7 @@ pub fn handle_tray_events(interface: &mut DownloadManager) {
     if let Ok(msg) = interface.tray_menu.channel.1.try_recv() {
         match msg {
             Message::AddDl => {
+                interface.show_window = true;
                 interface.popups.download.show = true;
             }
             Message::Show => {

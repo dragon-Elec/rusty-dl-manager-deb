@@ -1,5 +1,8 @@
 use crate::{server::interception::SERVER_STATE, DownloadManager};
-use std::{thread::sleep, time::Duration};
+use std::{
+    thread::sleep,
+    time::{Duration, Instant},
+};
 
 trait ConsumingIterator<T> {
     fn next(&mut self) -> Option<T>;
@@ -23,6 +26,7 @@ pub fn check_urls(interface: &mut DownloadManager) {
             if let Some(link) = links.next() {
                 interface.popups.download.link = link.clone();
                 interface.popups.download.show = true;
+                interface.show_window = true;
 
                 *locked = links;
             }
@@ -57,6 +61,14 @@ pub fn run_downloads(interface: &mut DownloadManager) {
         let file = &fdl.file;
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
         let new = fdl.new;
+        let is_running = file.running.load(std::sync::atomic::Ordering::Relaxed);
+        let speed = fdl
+            .file
+            .bytes_per_sec
+            .load(std::sync::atomic::Ordering::Relaxed);
+
+        fdl.has_error = speed == 0 && !complete && is_running;
+
         if !complete && !&fdl.initiated {
             let file = file.clone();
             let tx_error = interface.popups.error.channel.0.clone();
@@ -66,7 +78,7 @@ pub fn run_downloads(interface: &mut DownloadManager) {
                         match file.single_thread_dl().await {
                             Ok(_) => break,
                             Err(e) => {
-                                let error = format!("{}: {:?}", file.name_on_disk, e);
+                                let error = format!("{}: {:?}\n", file.name_on_disk, e);
                                 tx_error.send(error).unwrap();
                             }
                         }
@@ -76,7 +88,7 @@ pub fn run_downloads(interface: &mut DownloadManager) {
                     match file.single_thread_dl().await {
                         Ok(_) => {}
                         Err(e) => {
-                            let error = format!("{}: {:?}", file.name_on_disk, e);
+                            let error = format!("{}: {:?}\n", file.name_on_disk, e);
                             tx_error.send(error).unwrap();
                         }
                     }
@@ -85,10 +97,12 @@ pub fn run_downloads(interface: &mut DownloadManager) {
 
             fdl.initiated = true;
         }
-    }
-    if let Ok(err) = interface.popups.error.channel.1.try_recv() {
-        interface.popups.error.value = err;
-        interface.popups.error.show = true;
+
+        if let Ok(err) = interface.popups.error.channel.1.try_recv() {
+            fdl.has_error = true;
+            interface.popups.log.text.push_str(&err);
+            interface.popups.log.has_error = true;
+        }
     }
 }
 

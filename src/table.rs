@@ -1,7 +1,7 @@
 use crate::{
-    colors::{CYAN, DARK_INNER, GRAY},
+    colors::{CYAN, DARK_INNER, GRAY, RED},
     dl::file2dl::File2Dl,
-    Actions, DownloadManager,
+    Actions, DownloadManager, FDl,
 };
 use egui_extras::{Column, TableBuilder};
 #[cfg(unix)]
@@ -86,6 +86,7 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                 let file = &fdl.file;
                 let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
                 let new = fdl.new;
+                let file_has_error = fdl.has_error;
                 body.row(30.0, |mut row| {
                     row.col(|ui| {
                         ui.vertical(|ui| {
@@ -105,7 +106,7 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                         }
                     });
                     row.col(|ui| {
-                        file_name(file, ui);
+                        file_name(file_has_error, &file.name_on_disk, ui);
                     });
                     row.col(|ui| progress_bar(file, ui, ctx));
                     row.col(|ui| {
@@ -298,9 +299,14 @@ fn progress_bar(file: &File2Dl, ui: &mut Ui, ctx: &Context) {
     });
 }
 
-fn file_name(file: &File2Dl, ui: &mut Ui) {
-    let text = RichText::new(&file.name_on_disk).strong().size(15.0);
-    let label = Label::new(text.clone()).wrap_mode(TextWrapMode::Truncate);
+fn file_name(has_error: bool, name: &str, ui: &mut Ui) {
+    let text = if has_error {
+        RichText::new(name).strong().size(15.0).color(*RED)
+    } else {
+        RichText::new(name).strong().size(15.0)
+    };
+
+    let label = Label::new(text).wrap_mode(TextWrapMode::Truncate);
     ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
         ui.horizontal_centered(|ui| {
             ui.add(label);

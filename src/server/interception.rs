@@ -1,14 +1,13 @@
-use std::sync::Mutex;
-
 use poem::{handler, http::StatusCode, listener::TcpListener, post, web::Json, Route, Server};
 use serde::Deserialize;
+use std::sync::Mutex;
+
+pub static SERVER_STATE: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 #[derive(Debug, Deserialize)]
 struct Url {
     value: String,
 }
-
-pub static SERVER_STATE: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 #[handler]
 fn get_url(res: Json<Url>) -> String {

@@ -1,10 +1,13 @@
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_plot::{Legend, Line};
 use egui_sfml::egui::{
-    vec2, Align2, Button, Color32, ComboBox, Context, Frame, Layout, Pos2, RichText, Stroke,
-    TextEdit, Vec2, Window,
+    frame, vec2, Align2, Button, Color32, ComboBox, Context, CursorIcon, Frame, Label, Layout,
+    Pos2, RichText, ScrollArea, Stroke, TextEdit, Vec2, Window,
 };
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::{
+    sync::{atomic::AtomicUsize, Arc},
+    time::Instant,
+};
 
 use crate::{
     colors::{CYAN, DARKER_PURPLE, DARK_INNER, GRAY, PURPLE, RED},
@@ -29,7 +32,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .default_size(window_size)
-        .resizable(false)
+        .resizable(true)
         .movable(true)
         .frame(
             Frame::default()
@@ -176,6 +179,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                         file.switch_status();
                         let file = FDl {
                             file,
+                            has_error: false,
                             new: true,
                             initiated: false,
                             selected: false,
@@ -212,6 +216,7 @@ pub fn show_error_window(ctx: &Context, interface: &mut DownloadManager, error: 
         .default_pos(pos)
         .default_size(window_size)
         .movable(true)
+        .resizable(true)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -256,6 +261,7 @@ pub fn show_confirm_window(
         .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
+        .resizable(true)
         .movable(true)
         .frame(
             Frame::none()
@@ -305,7 +311,7 @@ pub fn show_plot_window(ctx: &Context, interface: &mut DownloadManager) {
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
         .default_size(window_size)
-        .resizable(false)
+        .resizable(true)
         .movable(true)
         .frame(
             Frame::none()
@@ -360,6 +366,7 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
         .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
+        .resizable(true)
         .movable(true)
         .frame(
             Frame::none()
@@ -385,7 +392,6 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
                     ui.colored_label(*RED, &interface.popups.speed.error);
                 });
             }
-            ui.separator();
             ui.with_layout(Layout::left_to_right(egui_sfml::egui::Align::LEFT), |ui| {
                 ui.scope(|ui| {
                     ui.visuals_mut().extreme_bg_color = *CYAN;
@@ -463,6 +469,62 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
                 if res.clicked() {
                     interface.popups.speed.show = false;
                 }
+            })
+        });
+}
+
+pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
+    let window_size = vec2(
+        ctx.available_rect().width() / 2.0,
+        ctx.available_rect().height() / 2.0,
+    );
+    let pos = Pos2::new(window_size.x, window_size.y);
+    Window::new("Error Window")
+        .pivot(Align2::CENTER_CENTER)
+        .default_pos(pos)
+        .fixed_size(window_size)
+        .movable(true)
+        .frame(
+            Frame::none()
+                .fill(*DARKER_PURPLE)
+                .inner_margin(TokyoNight.margin_style())
+                .stroke(Stroke::new(
+                    1.0,
+                    Color32::from_rgba_premultiplied(31, 31, 51, 255),
+                )),
+        )
+        .resizable(false)
+        .title_bar(false)
+        .show(ctx, |ui| {
+            ui.vertical(|ui| {
+                ui.with_layout(Layout::right_to_left(egui_sfml::egui::Align::LEFT), |ui| {
+                    ui.scope(|ui| {
+                        ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        let text = RichText::new(egui_phosphor::regular::X)
+                            .size(15.0)
+                            .color(*RED);
+                        let butt = Button::new(text).frame(false);
+                        let res = ui.add(butt);
+                        if res.clicked() {
+                            interface.popups.log.show = false;
+                        }
+                    });
+                    ui.add_space(ui.available_width() / 2.0 - 30.0);
+                    ui.colored_label(*CYAN, "Log");
+                });
+            });
+            ui.vertical_centered(|ui| {
+                frame::Frame::none().fill(*PURPLE).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.set_height(ui.available_height());
+                    ScrollArea::both().show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            ui.add(Label::new(
+                                RichText::new(&interface.popups.log.text).color(*RED),
+                            ));
+                        });
+                    })
+                })
             })
         });
 }

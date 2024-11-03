@@ -1,8 +1,8 @@
 use crate::{
     dl::file2dl::File2Dl,
     extern_windows::{
-        show_confirm_window, show_error_window, show_input_window, show_modify_speed_window,
-        show_plot_window,
+        show_confirm_window, show_error_window, show_input_window, show_log_window,
+        show_modify_speed_window, show_plot_window,
     },
     DownloadManager,
 };
@@ -11,7 +11,12 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 
 type TaskInner = Box<dyn FnOnce(&mut DownloadManager)>;
 type Task = Box<dyn Fn() -> TaskInner>;
-
+#[derive(Default)]
+pub struct LogPopup {
+    pub has_error: bool,
+    pub text: String,
+    pub show: bool,
+}
 pub struct ConfirmPopUp {
     pub text: String,
     pub color: Color32,
@@ -86,8 +91,12 @@ pub struct PopUps {
     pub confirm: ConfirmPopUp,
     pub plot: PLotPopUp,
     pub speed: EditSpeedPopUp,
+    pub log: LogPopup,
 }
 pub fn handle_popups(interface: &mut DownloadManager, ctx: &egui_sfml::egui::Context) {
+    if interface.popups.log.show {
+        show_log_window(ctx, interface);
+    }
     if interface.popups.speed.show {
         show_modify_speed_window(ctx, interface);
     }

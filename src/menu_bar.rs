@@ -3,7 +3,7 @@ use crate::{
     DownloadManager,
 };
 use egui_sfml::egui::{menu, Align, Color32, CursorIcon, Layout, RichText, TextEdit};
-use std::fs::{read_dir, remove_file};
+use std::{fs::remove_file, path::Path};
 
 pub fn init_menu_bar(interface: &mut DownloadManager, ui: &mut egui_sfml::egui::Ui) {
     menu::bar(ui, |ui| {
@@ -130,43 +130,73 @@ fn file_button_content(interface: &mut DownloadManager, ui: &mut egui_sfml::egui
     }
 }
 fn delete_all_files_from_disk(interface: &mut DownloadManager) {
-    let dir = match read_dir("Downloads") {
-        Ok(dir) => dir,
-        Err(e) => {
-            interface.popups.error.value = e.to_string();
-            interface.popups.error.show = true;
-            return;
-        }
-    };
-    for file in dir {
-        let path = match file {
-            Ok(file) => file.path(),
-            Err(e) => {
-                interface.popups.error.value = e.to_string();
-                interface.popups.error.show = true;
-                return;
+    let mut is_ok = true;
+    for fdl in interface.files.iter_mut() {
+        let name_on_disk = &fdl.file.name_on_disk;
+        let dir = &fdl.file.dl_dir;
+        let path = format!("{dir}/{}", name_on_disk);
+        let tmp_path = format!("{dir}/.{}.metadl", name_on_disk);
+        if Path::new(&path).exists() {
+            match remove_file(&path) {
+                Ok(_) => {
+                    let text = format!("Deleted file: {}\n", path);
+                    interface.popups.log.text.push_str(&text);
+                }
+                Err(e) => {
+                    let err = format!("File Path: {}, Error: {}\n", path, e);
+                    interface.popups.log.text.push_str(&err);
+                    interface.popups.error.value = err;
+                    interface.popups.error.show = true;
+                    is_ok = false;
+                }
             }
-        };
-        remove_file(path).unwrap();
+        }
+        if Path::new(&tmp_path).exists() {
+            match remove_file(&tmp_path) {
+                Ok(_) => {
+                    let text = format!("Deleted tmp file: {}\n", tmp_path);
+                    interface.popups.log.text.push_str(&text);
+                }
+                Err(e) => {
+                    let err = format!("File Path: {}, Error: {}\n", tmp_path, e);
+                    interface.popups.log.text.push_str(&err);
+                    interface.popups.error.value = err;
+                    interface.popups.error.show = true;
+                    is_ok = false;
+                }
+            }
+        }
     }
-    interface.files.clear();
+    if is_ok {
+        interface.files.clear();
+    }
 }
 fn remove_selected_from_disk(app: &mut DownloadManager) {
     app.files.retain(|core| {
         if core.selected {
             let path = format!("Downloads/{}", core.file.name_on_disk);
-            let tmp_path = format!("Downloads/.{}.metadata", core.file.name_on_disk);
-            match remove_file(path) {
-                Ok(_) => {}
+            let tmp_path = format!("Downloads/.{}.metadl", core.file.name_on_disk);
+            match remove_file(&path) {
+                Ok(_) => {
+                    let text = format!("File: {} was removed\n", &path);
+                    app.popups.log.text.push_str(&text);
+                }
                 Err(e) => {
-                    app.popups.error.value = e.to_string();
+                    let err = format!("File Path: {}, Error: {}\n", &path, e);
+                    app.popups.log.text.push_str(&err);
+                    app.popups.error.value = err;
                     app.popups.error.show = true;
                 }
             }
-            match remove_file(tmp_path) {
-                Ok(_) => {}
+            match remove_file(&tmp_path) {
+                Ok(_) => {
+                    let text = format!("Tmp File: {} was removed\n", &tmp_path);
+                    app.popups.log.text.push_str(&text);
+                }
                 Err(e) => {
-                    app.popups.error.value = e.to_string();
+                    let err = format!("File Path: {}, Error: {}\n", &tmp_path, e);
+                    app.popups.log.text.push_str(&err);
+                    app.popups.error.value = err;
                     app.popups.error.show = true;
                 }
             }

@@ -47,15 +47,11 @@ struct DownloadManager {
 impl DownloadManager {
     fn update(&mut self, ctx: &egui_sfml::egui::Context) {
         if !self.show_window {
-            ctx.request_repaint_after(Duration::from_secs(1));
+            std::thread::sleep(Duration::from_millis(100));
         }
-
         set_total_bandwidth(self);
         check_connection(self);
-        run_downloads(self);
-        check_urls(self);
         handle_popups(self, ctx);
-        handle_tray_events(self);
 
         egui_sfml::egui::TopBottomPanel::top(Id::new("Top"))
             .exact_height(40.0)
@@ -101,6 +97,7 @@ impl DownloadManager {
             confirm: ConfirmPopUp::default(),
             plot: PLotPopUp::default(),
             speed: EditSpeedPopUp::default(),
+            log: LogPopup::default(),
         };
 
         let files = Self::load_files().unwrap_or_default();
@@ -136,6 +133,7 @@ impl DownloadManager {
             .map(|file| FDl {
                 file,
                 new: false,
+                has_error: false,
                 initiated: false,
                 selected: false,
                 action_on_save: Actions::default(),
@@ -147,6 +145,7 @@ impl DownloadManager {
 #[derive(Debug, Default, Clone)]
 struct FDl {
     file: File2Dl,
+    has_error: bool,
     new: bool,
     initiated: bool,
     selected: bool,
@@ -162,8 +161,9 @@ fn main() {
         antialiasing_level: 0,
         ..Default::default()
     };
+
     let mut rw = RenderWindow::new(init_size, title, Style::DEFAULT, settings).unwrap();
-    rw.set_framerate_limit(60);
+    rw.set_vertical_sync_enabled(true);
 
     let mut sf_egui = SfEgui::new(&rw);
     setup_custom_fonts(sf_egui.context());
@@ -173,8 +173,10 @@ fn main() {
     state.runtime.spawn_blocking(move || {
         init_server().unwrap_or_default();
     });
-
     while rw.is_open() {
+        run_downloads(&mut state);
+        handle_tray_events(&mut state);
+        check_urls(&mut state);
         while let Some(ev) = rw.poll_event() {
             sf_egui.add_event(&ev);
             if matches!(ev, Event::Closed) {
@@ -204,15 +206,15 @@ fn main() {
             state.tray_menu.message = Message::None;
             rw.recreate(init_size, title, Style::DEFAULT, settings);
         }
+
         let di = sf_egui
             .run(&mut rw, |_rw, ctx| {
                 state.update(ctx);
             })
             .unwrap();
-        if state.show_window {
-            sf_egui.draw(di, &mut rw, None);
-            rw.display();
-        }
+
+        sf_egui.draw(di, &mut rw, None);
+        rw.display();
     }
 }
 
