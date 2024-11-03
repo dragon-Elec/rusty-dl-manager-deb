@@ -1,7 +1,7 @@
 use crate::{
     colors::{CYAN, DARK_INNER, GRAY, RED},
     dl::file2dl::File2Dl,
-    Actions, DownloadManager, FDl,
+    Actions, DownloadManager,
 };
 use egui_extras::{Column, TableBuilder};
 #[cfg(unix)]

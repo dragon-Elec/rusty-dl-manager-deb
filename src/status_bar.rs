@@ -52,8 +52,21 @@ pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
             }
         });
         ui.add(Separator::grow(Separator::default(), 35.0));
-        ui.add_space(ui.available_width() - 120.0);
+        ui.add_space(ui.available_width() - 160.0);
         ui.horizontal_centered(|ui| {
+            {
+                let text = egui_sfml::egui::RichText::new(egui_phosphor::fill::GEAR)
+                    .size(25.0)
+                    .color(*DARK_INNER);
+                let butt = Button::new(text).fill(*CYAN).rounding(25.0);
+                let res = ui.add(butt);
+                if res.clicked() {
+                    interface.popups.settings.show = true;
+                }
+                if res.hovered() {
+                    ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                }
+            }
             {
                 let text = egui_sfml::egui::RichText::new(egui_phosphor::fill::SCROLL)
                     .size(25.0)

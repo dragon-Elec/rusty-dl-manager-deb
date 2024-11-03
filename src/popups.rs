@@ -2,17 +2,26 @@ use crate::{
     dl::file2dl::File2Dl,
     extern_windows::{
         show_confirm_window, show_error_window, show_input_window, show_log_window,
-        show_modify_speed_window, show_plot_window,
+        show_modify_speed_window, show_plot_window, show_settings_window,
     },
-    DownloadManager,
+    DownloadManager, Settings,
 };
 use egui_sfml::egui::Color32;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 type TaskInner = Box<dyn FnOnce(&mut DownloadManager)>;
 type Task = Box<dyn Fn() -> TaskInner>;
+
 #[derive(Default)]
-pub struct LogPopup {
+pub struct SettingsPopUp {
+    pub show: bool,
+    pub temp_str: String,
+    pub dl_dir: String,
+    pub error: String,
+}
+
+#[derive(Default)]
+pub struct LogPopUp {
     pub has_error: bool,
     pub text: String,
     pub show: bool,
@@ -87,11 +96,12 @@ impl Default for DownloadPopUp {
 #[derive(Default)]
 pub struct PopUps {
     pub download: DownloadPopUp,
+    pub settings: SettingsPopUp,
     pub error: ErrorPopUp,
     pub confirm: ConfirmPopUp,
     pub plot: PLotPopUp,
     pub speed: EditSpeedPopUp,
-    pub log: LogPopup,
+    pub log: LogPopUp,
 }
 pub fn handle_popups(interface: &mut DownloadManager, ctx: &egui_sfml::egui::Context) {
     if interface.popups.log.show {
@@ -118,5 +128,8 @@ pub fn handle_popups(interface: &mut DownloadManager, ctx: &egui_sfml::egui::Con
     };
     if interface.popups.download.show {
         show_input_window(ctx, interface);
+    }
+    if interface.popups.settings.show {
+        show_settings_window(ctx, interface);
     }
 }

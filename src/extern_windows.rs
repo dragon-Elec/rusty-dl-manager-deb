@@ -2,9 +2,13 @@ use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_plot::{Legend, Line};
 use egui_sfml::egui::{
     frame, vec2, Align2, Button, Color32, ComboBox, Context, CursorIcon, Frame, Label, Layout,
-    Pos2, RichText, ScrollArea, Stroke, TextEdit, Vec2, Window,
+    Pos2, RichText, ScrollArea, Separator, Stroke, TextEdit, Vec2, Window,
 };
+use serde_json::json;
 use std::{
+    fs::OpenOptions,
+    io::Write,
+    path::Path,
     sync::{atomic::AtomicUsize, Arc},
     time::Instant,
 };
@@ -12,7 +16,7 @@ use std::{
 use crate::{
     colors::{CYAN, DARKER_PURPLE, DARK_INNER, GRAY, PURPLE, RED},
     dl::{file2dl::File2Dl, metadata::init_metadata},
-    Actions, DownloadManager, FDl,
+    Actions, DownloadManager, FDl, Settings,
 };
 
 #[derive(Default)]
@@ -28,6 +32,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
         ctx.available_rect().height() / 2.3,
     );
     interface.show_window = true;
+    let dl_dir = interface.settings.dl_dir.clone();
     Window::new("Add Download")
         .pivot(Align2::CENTER_CENTER)
         .default_pos(pos)
@@ -150,7 +155,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                             let link = interface.popups.download.link.clone();
                             interface.popups.download.error = String::from("Initiating...");
                             interface.runtime.spawn(async move {
-                                match File2Dl::new(&link, "Downloads").await {
+                                match File2Dl::new(&link, &dl_dir).await {
                                     Ok(file) => file_tx.send(file).unwrap(),
                                     Err(e) => {
                                         tx.send(e.to_string()).unwrap();
@@ -180,6 +185,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                         let file = FDl {
                             file,
                             has_error: false,
+                            toggled_at: Instant::now(),
                             new: true,
                             initiated: false,
                             selected: false,
@@ -258,11 +264,10 @@ pub fn show_confirm_window(
         ctx.available_rect().height() / 2.3,
     );
     Window::new("Confirm")
-        .default_size(window_size)
+        .fixed_size(window_size)
         .pivot(Align2::CENTER_CENTER)
-        .default_pos(pos)
+        .fixed_pos(pos)
         .resizable(true)
-        .movable(true)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -277,25 +282,22 @@ pub fn show_confirm_window(
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.colored_label(*CYAN, "Are u sure?");
+                ui.add(Separator::grow(Separator::default(), ui.available_width()));
                 ui.label(RichText::new(text).strong().color(color));
             });
-            ui.separator();
-            ui.add_space(10.0);
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    ui.visuals_mut().override_text_color = Some(*DARKER_PURPLE);
-                    ui.add_space(20.0);
-                    let butt = Button::new(egui_phosphor::regular::CHECK).fill(*CYAN);
-                    if ui.add_sized(Vec2::new(40.0, 30.0), butt).clicked() {
-                        action(interface);
-                        interface.popups.confirm.show = false;
-                    }
-                    ui.add_space(125.0);
-                    let butt = Button::new(egui_phosphor::regular::X).fill(*CYAN);
-                    if ui.add_sized(Vec2::new(40.0, 30.0), butt).clicked() {
-                        interface.popups.confirm.show = false;
-                    }
-                })
+            ui.horizontal_centered(|ui| {
+                ui.visuals_mut().override_text_color = Some(*DARKER_PURPLE);
+                ui.add_space(20.0);
+                let butt = Button::new(egui_phosphor::regular::CHECK).fill(*CYAN);
+                if ui.add_sized(Vec2::new(40.0, 30.0), butt).clicked() {
+                    action(interface);
+                    interface.popups.confirm.show = false;
+                }
+                ui.add_space(ui.available_width() - 60.0);
+                let butt = Button::new(egui_phosphor::regular::X).fill(*CYAN);
+                if ui.add_sized(Vec2::new(40.0, 30.0), butt).clicked() {
+                    interface.popups.confirm.show = false;
+                }
             });
             ui.add_space(10.0);
         });
@@ -417,7 +419,7 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
                         .collect::<Vec<_>>();
                     for f in files {
                         f.file.speed.store(0, std::sync::atomic::Ordering::Relaxed);
-                        match init_metadata(&f.file, "Downloads") {
+                        match init_metadata(&f.file, &interface.settings.dl_dir) {
                             Ok(_) => {}
                             Err(e) => {
                                 interface.popups.error.value = e.to_string();
@@ -452,7 +454,7 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
                         f.file
                             .speed
                             .store(speed, std::sync::atomic::Ordering::Relaxed);
-                        match init_metadata(&f.file, "Downloads") {
+                        match init_metadata(&f.file, &interface.settings.dl_dir) {
                             Ok(_) => {}
                             Err(e) => {
                                 interface.popups.error.value = e.to_string();
@@ -499,12 +501,14 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
             ui.vertical(|ui| {
                 ui.with_layout(Layout::right_to_left(egui_sfml::egui::Align::LEFT), |ui| {
                     ui.scope(|ui| {
-                        ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
                         let text = RichText::new(egui_phosphor::regular::X)
                             .size(15.0)
                             .color(*RED);
                         let butt = Button::new(text).frame(false);
                         let res = ui.add(butt);
+                        if res.hovered() {
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                        }
                         if res.clicked() {
                             interface.popups.log.show = false;
                         }
@@ -525,6 +529,115 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
                         });
                     })
                 })
+            })
+        });
+}
+
+pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
+    let window_size = vec2(
+        ctx.available_rect().width() / 2.0,
+        ctx.available_rect().height() / 2.0,
+    );
+    let pos = Pos2::new(window_size.x, window_size.y);
+    Window::new("Error Window")
+        .pivot(Align2::CENTER_CENTER)
+        .default_pos(pos)
+        .fixed_size(window_size)
+        .movable(true)
+        .frame(
+            Frame::none()
+                .fill(*DARKER_PURPLE)
+                .inner_margin(TokyoNight.margin_style())
+                .stroke(Stroke::new(
+                    1.0,
+                    Color32::from_rgba_premultiplied(31, 31, 51, 255),
+                )),
+        )
+        .resizable(false)
+        .title_bar(false)
+        .show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.colored_label(*CYAN, "Change settings");
+                if !interface.popups.settings.error.is_empty() {
+                    ui.colored_label(*RED, &interface.popups.settings.error);
+                }
+                ui.add_space(20.0);
+                ui.scope(|ui| {
+                    ui.visuals_mut().extreme_bg_color = *CYAN;
+                    ui.visuals_mut().override_text_color = Some(*DARKER_PURPLE);
+                    let hint = RichText::new("Download directory").color(*GRAY);
+                    let dl_dir =
+                        TextEdit::singleline(&mut interface.popups.settings.dl_dir).hint_text(hint);
+                    ui.add_sized((310.0, 28.0), dl_dir);
+                    ui.add_space(20.0);
+                    let hint = RichText::new("Download retry interval").color(*GRAY);
+                    let temp_str = TextEdit::singleline(&mut interface.popups.settings.temp_str)
+                        .hint_text(hint);
+                    ui.add_sized((310.0, 28.0), temp_str);
+                });
+                ui.add_space(20.0);
+            });
+            ui.with_layout(Layout::left_to_right(egui_sfml::egui::Align::LEFT), |ui| {
+                ui.visuals_mut().override_text_color = Some(*DARK_INNER);
+                let text = RichText::new(egui_phosphor::regular::CHECK).size(20.0);
+                let button = Button::new(text).fill(*CYAN);
+                let res = ui.add(button);
+                if res.clicked() {
+                    match interface.popups.settings.temp_str.parse::<u64>() {
+                        Ok(val) => interface.settings.retry_interval = val,
+                        Err(e) => {
+                            interface.popups.settings.error = e.to_string();
+                            return;
+                        }
+                    };
+                    if Path::new(&interface.popups.settings.dl_dir).is_dir() {
+                        interface.settings.dl_dir = interface.popups.settings.dl_dir.clone();
+                    } else {
+                        interface.popups.settings.error = String::from("Not a valid dir");
+                        return;
+                    }
+
+                    let settings = json!(interface.settings).to_string();
+                    let file = OpenOptions::new()
+                        .create(true)
+                        .truncate(true)
+                        .write(true)
+                        .open("settings.json");
+                    match file {
+                        Ok(mut f) => {
+                            if let Err(e) = f.write_all(settings.as_bytes()) {
+                                interface.popups.settings.error =
+                                    format!("Couldn't write to file: {:?}", e);
+                                return;
+                            } else {
+                                match DownloadManager::load_files(&interface.settings) {
+                                    Ok(fs) => {
+                                        interface.popups.settings.show = false;
+                                        interface.files = fs
+                                    }
+                                    Err(e) => {
+                                        interface.popups.settings.error = format!(
+                                            "Couldn't gather new files after dir change: {:?}",
+                                            e
+                                        );
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            interface.popups.settings.error = format!("File open error: {:?}", e);
+                            return;
+                        }
+                    }
+                }
+                ui.add_space(ui.available_width() - 30.0);
+                let text = RichText::new(egui_phosphor::regular::X).size(20.0);
+                let button = Button::new(text).fill(*CYAN);
+                let res = ui.add(button);
+                if res.clicked() {
+                    interface.popups.settings.show = false;
+                }
             })
         });
 }

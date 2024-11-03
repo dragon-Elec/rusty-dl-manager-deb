@@ -1,4 +1,4 @@
-use crate::{server::interception::SERVER_STATE, DownloadManager};
+use crate::{server::interception::SERVER_STATE, DownloadManager, Settings};
 use std::{
     thread::sleep,
     time::{Duration, Instant},
@@ -66,9 +66,17 @@ pub fn run_downloads(interface: &mut DownloadManager) {
             .file
             .bytes_per_sec
             .load(std::sync::atomic::Ordering::Relaxed);
+        if complete {
+            fdl.has_error = false;
+        }
 
-        fdl.has_error = speed == 0 && !complete && is_running;
-
+        if is_running {
+            fdl.has_error =
+                speed == 0 && !complete && fdl.toggled_at.elapsed() >= Duration::from_secs(5);
+        } else {
+            fdl.toggled_at = Instant::now();
+        }
+        let retry_interval = interface.settings.retry_interval;
         if !complete && !&fdl.initiated {
             let file = file.clone();
             let tx_error = interface.popups.error.channel.0.clone();
@@ -82,7 +90,7 @@ pub fn run_downloads(interface: &mut DownloadManager) {
                                 tx_error.send(error).unwrap();
                             }
                         }
-                        sleep(Duration::from_secs(5));
+                        sleep(Duration::from_secs(retry_interval));
                     }
                 } else if new {
                     match file.single_thread_dl().await {
