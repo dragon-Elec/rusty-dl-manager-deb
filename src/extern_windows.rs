@@ -230,7 +230,6 @@ pub fn show_error_window(ctx: &Context, interface: &mut DownloadManager, error: 
                     Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
-        .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
@@ -274,7 +273,6 @@ pub fn show_confirm_window(
                     Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
-        .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
@@ -319,7 +317,6 @@ pub fn show_plot_window(ctx: &Context, interface: &mut DownloadManager) {
                     Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
-        .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
             ui.centered_and_justified(|ui| {
@@ -360,9 +357,10 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
         ctx.available_rect().height() / 2.3,
     );
     Window::new("Speed Window")
-        .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
         .fixed_pos(pos)
+        .default_size(window_size)
+        .resizable(false)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -374,13 +372,9 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
         )
         .title_bar(false)
         .show(ctx, |ui| {
-            ui.scope(|ui| {
-                ui.set_height(20.0);
-                ui.vertical_centered(|ui| {
-                    ui.colored_label(*CYAN, "Modify speed");
-                });
+            ui.vertical_centered_justified(|ui| {
+                ui.colored_label(*CYAN, "Modify speed");
             });
-
             if !interface.popups.speed.error.is_empty() {
                 ui.vertical_centered(|ui| {
                     ui.colored_label(*RED, &interface.popups.speed.error);
@@ -478,7 +472,7 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
     Window::new("Log Window")
         .pivot(Align2::CENTER_CENTER)
         .fixed_pos(pos)
-        .default_size(window_size)
+        .fixed_size(window_size)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -488,7 +482,6 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
                     Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
-        .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
             ui.vertical(|ui| {
@@ -514,11 +507,22 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
                 frame::Frame::none().fill(*PURPLE).show(ui, |ui| {
                     ui.set_width(ui.available_width());
                     ui.set_height(ui.available_height());
-                    ScrollArea::both().min_scrolled_width(10.0).show(ui, |ui| {
+                    ScrollArea::both().show(ui, |ui| {
                         ui.vertical(|ui| {
                             for log in logs {
-                                let formatted = format!("{}: {}", log.0, log.1);
+                                let formatted = format!(
+                                    "{}{} {}",
+                                    log.0,
+                                    egui_phosphor::fill::CARET_RIGHT,
+                                    log.1
+                                );
                                 ui.add(Label::new(RichText::new(formatted).color(log.2)));
+                                ui.add(Label::new(
+                                    RichText::new(
+                                        "---------------------------------------------------------",
+                                    )
+                                    .color(*CYAN),
+                                ));
                             }
                         });
                     })

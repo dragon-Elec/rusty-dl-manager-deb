@@ -90,7 +90,7 @@ pub fn run_downloads(interface: &mut DownloadManager) {
         if !complete && !&fdl.initiated {
             let file = file.clone();
             let tx_error = interface.popups.error.channel.0.clone();
-            let log_msg = format!("Started Downloading: {}", &file.url.link);
+            let log_msg = format!("Initiating : {}", &file.url.link);
             interface
                 .popups
                 .log

@@ -195,8 +195,8 @@ fn remove_selected_from_disk(app: &mut DownloadManager) {
         if core.selected {
             let now = Local::now();
             let formatted_time = now.format("%H:%M:%S").to_string();
-            let path = format!("Downloads/{}", core.file.name_on_disk);
-            let tmp_path = format!("Downloads/.{}.metadl", core.file.name_on_disk);
+            let path = format!("{}/{}", app.settings.dl_dir, core.file.name_on_disk);
+            let tmp_path = format!("{}/.{}.metadl", app.settings.dl_dir, core.file.name_on_disk);
             match remove_file(&path) {
                 Ok(_) => {
                     let text = format!("File: {} was removed\n", &path);

@@ -9,7 +9,7 @@ use reqwest::{
 };
 
 const URL_RE: &str = r#"(https:\/\/www\.|http:\/\/www\.|https:\/\/|http:\/\/)?[a-zA-Z0-9]{2,}(\.[a-zA-Z0-9]{2,})(\.[a-zA-Z0-9]{2,})?"#;
-const FILENAME_RE: &str = r#"^[\w,\s-]+\.[A-Za-z]{3}$"#;
+const FILENAME_RE: &str = r#"^[\w\s,-]+(\.[\w-]+)*\.[A-Za-z]{3}$"#;
 
 #[derive(Debug, Default, Clone)]
 pub struct Url {
@@ -100,11 +100,10 @@ async fn manual_range_test(client: &Client, link: &str) -> bool {
 
 fn parse_name_from_url(link: &str) -> Option<String> {
     //self explanatory
-    let splits = link.split('/');
+    let last_segment = link.split('/').last()?.trim();
     let re = Regex::new(FILENAME_RE).expect("Invalid filename regex");
-    let last = splits.last()?;
-    if re.is_match(last) {
-        return Some(last.to_string());
+    if re.is_match(last_segment) {
+        return Some(last_segment.to_string());
     }
     None
 }
