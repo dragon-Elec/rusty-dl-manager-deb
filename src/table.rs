@@ -80,6 +80,18 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                 })
                 .map(|f| f.to_owned())
                 .collect::<Vec<_>>();
+            if !interface.explorer.current.is_empty() {
+                to_display.retain(|f| {
+                    interface.explorer.current.iter().any(|ext| {
+                        f.file
+                            .name_on_disk
+                            .trim()
+                            .to_lowercase()
+                            .ends_with(&ext.trim().to_lowercase())
+                    })
+                });
+            }
+
             to_display.sort_by(|a, b| {
                 (a.file.complete.load(Relaxed), &a.file.name_on_disk)
                     .cmp(&(b.file.complete.load(Relaxed), &b.file.name_on_disk))

@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use colors::{DARKER_PURPLE, PURPLE};
+use colors::{CYAN, DARKER_PURPLE, GREEN, PURPLE};
 use dl::file2dl::File2Dl;
 use download_mechanism::{check_urls, run_downloads, set_total_bandwidth, Actions};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_sfml::{
-    egui::{Color32, Context, FontData, FontDefinitions, Id},
+    egui::{Button, Color32, Context, CursorIcon, FontData, FontDefinitions, Id, Layout, RichText},
     sfml::{
         graphics::{FloatRect, RenderTarget, RenderWindow, View},
         window::{ContextSettings, Event, Style},
@@ -17,6 +17,7 @@ use popups::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use server::interception::init_server;
+use side_bar::{lay_side_bar_content, Explorer};
 use status_bar::{check_connection, init_status_bar, Connection};
 use std::{
     fs::File,
@@ -36,9 +37,11 @@ mod extern_windows;
 mod menu_bar;
 mod popups;
 mod server;
+mod side_bar;
 mod status_bar;
 mod table;
 mod tray;
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Settings {
     retry_interval: u64,
@@ -69,6 +72,7 @@ struct DownloadManager {
     runtime: Runtime,
     files: Vec<FDl>,
     popups: PopUps,
+    explorer: Explorer,
     temp_action: Actions,
     search: String,
     connection: Connection,
@@ -84,15 +88,34 @@ impl DownloadManager {
             std::thread::sleep(Duration::from_millis(100));
         }
         handle_popups(self, ctx);
+
         egui_sfml::egui::TopBottomPanel::top(Id::new("Top"))
-            .exact_height(40.0)
+            .default_height(40.0)
+            .resizable(false)
             .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
-            .show_separator_line(false)
+            .show_separator_line(true)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.add_space(7.0);
                 });
                 init_menu_bar(self, ui);
+            });
+
+        egui_sfml::egui::TopBottomPanel::bottom(Id::new("Bottom"))
+            .default_height(40.0)
+            .show_separator_line(true)
+            .resizable(false)
+            .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
+            .show(ctx, |ui| {
+                init_status_bar(self, ui);
+            });
+        egui_sfml::egui::SidePanel::left(Id::new("left"))
+            .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
+            .exact_width(140.0)
+            .show_separator_line(true)
+            .resizable(false)
+            .show(ctx, |ui| {
+                lay_side_bar_content(self, ui);
             });
         egui_sfml::egui::CentralPanel::default()
             .frame(
@@ -106,13 +129,6 @@ impl DownloadManager {
             )
             .show(ctx, |ui| {
                 lay_table(self, ui, ctx);
-            });
-        egui_sfml::egui::TopBottomPanel::bottom(Id::new("Bottom"))
-            .exact_height(40.0)
-            .show_separator_line(false)
-            .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
-            .show(ctx, |ui| {
-                init_status_bar(self, ui);
             });
     }
 
@@ -143,10 +159,11 @@ impl DownloadManager {
             speed: EditSpeedPopUp::default(),
             log: LogPopUp::default(),
         };
-
+        let explorer = Explorer::default();
         Self {
             runtime,
             files,
+            explorer,
             settings,
             popups,
             temp_action: Actions::default(),
