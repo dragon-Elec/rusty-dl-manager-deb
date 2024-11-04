@@ -8,7 +8,7 @@ Rusty Download Manager is an asynchronous and performant download manager writte
   
 - **Bandwidth Control**: Control your download speed and manage your bandwidth usage effectively.
 
-- **Action on Save**: Customize what happens after a file is downloaded, from moving files to specific folders to executing scripts.
+- **Action on Save**: Customize what happens after a file is downloaded.
 
 - **Browser Download Grabbing**: Seamlessly integrate with your web browser to grab and manage downloads directly from your browsing experience.
 
