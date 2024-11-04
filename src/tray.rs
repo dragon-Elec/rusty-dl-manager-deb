@@ -62,10 +62,7 @@ pub fn handle_tray_events(interface: &mut DownloadManager) {
                 interface.show_window = true;
                 interface.popups.download.show = true;
             }
-            Message::Show => {
-                interface.tray_menu.message = Message::Show;
-                interface.show_window = true
-            }
+            Message::Show => interface.show_window = true,
             Message::Hide => {
                 interface.show_window = false;
                 interface.popups.download.show = false;

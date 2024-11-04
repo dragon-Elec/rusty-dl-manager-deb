@@ -198,7 +198,7 @@ struct FDl {
 }
 
 fn main() {
-    let mut init_size = (860, 480);
+    let init_size = (860, 480);
     let title = "Rusty Dl Manager";
     let win_settings = &ContextSettings {
         depth_bits: 0,
@@ -236,7 +236,6 @@ fn main() {
                 state.show_window = false;
             }
             if let Event::Resized { width, height } = ev {
-                init_size = (width, height);
                 rw.set_view(
                     &View::from_rect(FloatRect::new(0f32, 0f32, width as f32, height as f32))
                         .unwrap(),
@@ -248,10 +247,6 @@ fn main() {
             rw.set_visible(true)
         } else {
             rw.set_visible(false);
-        }
-        if state.show_window && state.tray_menu.message == Message::Show {
-            state.tray_menu.message = Message::None;
-            rw.recreate(init_size, title, Style::DEFAULT, win_settings);
         }
 
         let di = sf_egui

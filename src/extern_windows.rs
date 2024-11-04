@@ -389,9 +389,10 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
             ui.with_layout(Layout::left_to_right(egui_sfml::egui::Align::LEFT), |ui| {
                 ui.scope(|ui| {
                     ui.visuals_mut().extreme_bg_color = *CYAN;
-                    ui.visuals_mut().override_text_color = Some(*GRAY);
-                    let single_text =
-                        TextEdit::singleline(&mut interface.popups.speed.temp_val).hint_text("Mbs");
+                    ui.visuals_mut().override_text_color = Some(*DARK_INNER);
+                    let hint_text = RichText::new("Mbs").color(*GRAY);
+                    let single_text = TextEdit::singleline(&mut interface.popups.speed.temp_val)
+                        .hint_text(hint_text);
                     ui.add_sized((310.0, 28.0), single_text);
                 });
                 let text = RichText::new(egui_phosphor::regular::CLOCK_CLOCKWISE).size(20.0);
@@ -553,6 +554,7 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
             let formatted_time = now.format("%H:%M:%S").to_string();
             ui.vertical_centered(|ui| {
                 ui.colored_label(*CYAN, "Change settings");
+                ui.add_space(20.0);
                 if !interface.popups.settings.error.is_empty() {
                     ui.colored_label(*RED, &interface.popups.settings.error);
                 }
@@ -569,6 +571,7 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                     let btn = Button::new(btn_txt).fill(*CYAN);
                     ui.add_sized((275.0, 28.0), dl_dir);
                     let res = ui.add(btn);
+
                     if res.clicked() {
                         let path = FileDialog::new().show_open_single_dir().unwrap();
                         match path {
@@ -589,14 +592,15 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                     }
                 });
             });
-
             ui.vertical_centered(|ui| {
+                ui.add_space(10.0);
                 ui.visuals_mut().extreme_bg_color = *CYAN;
                 ui.visuals_mut().override_text_color = Some(*DARKER_PURPLE);
                 let hint = RichText::new("Download retry interval in secs").color(*GRAY);
                 let temp_str =
                     TextEdit::singleline(&mut interface.popups.settings.temp_str).hint_text(hint);
                 ui.add_sized((310.0, 28.0), temp_str);
+                ui.add_space(20.0);
             });
             ui.with_layout(Layout::left_to_right(egui_sfml::egui::Align::LEFT), |ui| {
                 ui.visuals_mut().override_text_color = Some(*DARK_INNER);

@@ -29,3 +29,10 @@ chrono = "0.4.38"
 
 [build-dependencies]
 embed-resource = "2.3"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+opt-level = "z"
+strip = "debuginfo"
+panic = "abort"

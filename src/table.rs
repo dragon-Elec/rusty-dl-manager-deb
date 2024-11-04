@@ -17,12 +17,12 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
     let mut select_size = 0f32;
     TableBuilder::new(ui)
         .auto_shrink(false)
-        .striped(true)
+        .striped(false)
         .column(Column::exact(available_width * 0.02))
         .column(Column::initial(available_width * 0.1857))
         .column(Column::initial(available_width * 0.255))
         .column(Column::initial(available_width * 0.15))
-        .column(Column::exact(available_width * 0.2))
+        .column(Column::initial(available_width * 0.2))
         .column(Column::initial(available_width * 0.1857))
         .header(20.0, |mut header| {
             header.col(|ui| {
@@ -35,10 +35,12 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                     ui.add_space(ui.available_width() / 2.0 - (74.0 - select_size / 2.0));
                     ui.heading(text);
                 });
-                ui.add(Separator::grow(
-                    Separator::default(),
-                    ctx.screen_rect().width(),
-                ));
+
+                ui.add(
+                    Separator::default()
+                        .horizontal()
+                        .grow(ctx.screen_rect().width()),
+                );
             });
             header.col(|ui| {
                 let text = RichText::new("Progress").color(*CYAN).strong();
@@ -53,13 +55,13 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                 });
             });
             header.col(|ui| {
-                let text = RichText::new("Action on save").color(*CYAN).strong();
+                let text = RichText::new("On save").color(*CYAN).strong();
                 ui.vertical_centered(|ui| {
                     ui.heading(text);
                 });
             });
             header.col(|ui| {
-                let text = RichText::new("Toggle").color(*CYAN).strong();
+                let text = RichText::new("Status").color(*CYAN).strong();
                 ui.vertical_centered(|ui| {
                     ui.heading(text);
                 });
@@ -97,6 +99,7 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                             );
                             ui.add_space(3.0);
                         });
+
                         let file = interface
                             .files
                             .iter_mut()
@@ -107,6 +110,11 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                     });
                     row.col(|ui| {
                         file_name(file_has_error, &file.name_on_disk, ui);
+                        ui.add(
+                            Separator::default()
+                                .horizontal()
+                                .grow(ctx.screen_rect().width()),
+                        );
                     });
                     row.col(|ui| progress_bar(file, ui, ctx));
                     row.col(|ui| {
@@ -131,7 +139,8 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                                     "Limited to: {:.2}MBs",
                                     (file.speed.load(std::sync::atomic::Ordering::Relaxed) as f64
                                         / (1024 * 1024) as f64)
-                                ));
+                                ))
+                                .color(*CYAN);
                                 res.show_tooltip_text(text);
                             }
                             ui.add_space(5.0);

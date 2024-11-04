@@ -65,6 +65,8 @@ pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
                 }
                 if res.hovered() {
                     ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                    let text = RichText::new("Modify Settings").color(*CYAN);
+                    res.show_tooltip_text(text);
                 }
             }
             {
@@ -83,6 +85,8 @@ pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
                 }
                 if res.hovered() {
                     ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                    let text = RichText::new("Logs").color(*CYAN);
+                    res.show_tooltip_text(text);
                 }
             }
             {
