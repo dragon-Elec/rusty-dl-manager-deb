@@ -63,19 +63,12 @@ impl Default for Types {
         };
         let binaries = {
             let exts = vec![
-                "exe".to_string(),
-                "msi".to_string(),
-                "bin".to_string(),
-                "command".to_string(),
-                "sh".to_string(),
-                "bat".to_string(),
-                "crx".to_string(),
-                "bash".to_string(),
-                "csh".to_string(),
-                "fish".to_string(),
-                "ksh".to_string(),
-                "zsh".to_string(),
-            ];
+                "exe", "msi", "bin", "command", "sh", "bat", "crx", "bash", "csh", "fish", "ksh",
+                "zsh",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<String>>();
             Inner {
                 clicked: false,
                 exts,
