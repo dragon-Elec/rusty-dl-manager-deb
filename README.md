@@ -25,6 +25,6 @@ Rusty Download Manager is an asynchronous and performant download manager writte
 To get started with Rusty Download Manager, clone the repository and build the project:
 
 ```bash
-git clone (https://github.com/HellZEras/rusty-dl-manager.git)
+git clone https://github.com/HellZEras/rusty-dl-manager.git
 cd rusty-download-manager
 cargo build --release
