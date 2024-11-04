@@ -31,6 +31,14 @@ pub fn check_urls(interface: &mut DownloadManager) {
         if !interface.popups.download.show {
             if let Some(link) = links.next() {
                 interface.popups.download.link = link.clone();
+                let now = Local::now();
+                let formatted_time = now.format("%H:%M:%S").to_string();
+                let text = format!("Received link from server:{}", &link);
+                interface
+                    .popups
+                    .log
+                    .logs
+                    .push((formatted_time, text, *GREEN));
                 interface.popups.download.show = true;
                 interface.show_window = true;
 

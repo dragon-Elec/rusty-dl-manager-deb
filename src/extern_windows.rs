@@ -16,7 +16,7 @@ use std::{
 };
 
 use crate::{
-    colors::{CYAN, DARKER_PURPLE, DARK_INNER, GRAY, PURPLE, RED},
+    colors::{CYAN, DARKER_PURPLE, DARK_INNER, GRAY, GREEN, PURPLE, RED},
     dl::{file2dl::File2Dl, metadata::init_metadata},
     Actions, DownloadManager, FDl,
 };
@@ -153,6 +153,14 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                             let tx = interface.popups.download.error_channel.0.clone();
                             let file_tx = interface.popups.download.file_channel.0.clone();
                             let link = interface.popups.download.link.clone();
+                            let now = Local::now();
+                            let formatted_time = now.format("%H:%M:%S").to_string();
+                            let text = format!("Adding link:{}", &link);
+                            interface
+                                .popups
+                                .log
+                                .logs
+                                .push((formatted_time, text, *GREEN));
                             interface.popups.download.error = String::from("Initiating...");
                             interface.runtime.spawn(async move {
                                 match File2Dl::new(&link, &dl_dir).await {
