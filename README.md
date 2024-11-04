@@ -26,5 +26,5 @@ To get started with Rusty Download Manager, clone the repository and build the p
 
 ```bash
 git clone https://github.com/HellZEras/rusty-dl-manager.git
-cd rusty-download-manager
+cd rusty-dl-manager
 cargo build --release
