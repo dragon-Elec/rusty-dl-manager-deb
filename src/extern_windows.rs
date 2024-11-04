@@ -37,10 +37,8 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
     let dl_dir = interface.settings.dl_dir.clone();
     Window::new("Download window")
         .pivot(Align2::CENTER_CENTER)
-        .default_pos(pos)
+        .fixed_pos(pos)
         .default_size(window_size)
-        .resizable(true)
-        .movable(true)
         .frame(
             Frame::default()
                 .fill(*DARKER_PURPLE)
@@ -221,10 +219,8 @@ pub fn show_error_window(ctx: &Context, interface: &mut DownloadManager, error: 
     );
     Window::new("Error Window")
         .pivot(Align2::CENTER_CENTER)
-        .default_pos(pos)
+        .fixed_pos(pos)
         .default_size(window_size)
-        .movable(true)
-        .resizable(true)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -269,8 +265,6 @@ pub fn show_confirm_window(
         .fixed_size(window_size)
         .pivot(Align2::CENTER_CENTER)
         .fixed_pos(pos)
-        .resizable(true)
-        .movable(true)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -314,10 +308,8 @@ pub fn show_plot_window(ctx: &Context, interface: &mut DownloadManager) {
     let pos = Pos2::new(window_size.x, window_size.y);
     Window::new("Plot Window")
         .pivot(Align2::CENTER_CENTER)
-        .default_pos(pos)
+        .fixed_pos(pos)
         .default_size(window_size)
-        .resizable(true)
-        .movable(true)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -370,9 +362,7 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
     Window::new("Speed Window")
         .default_size(window_size)
         .pivot(Align2::CENTER_CENTER)
-        .default_pos(pos)
-        .resizable(true)
-        .movable(true)
+        .fixed_pos(pos)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -382,7 +372,6 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
                     Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
-        .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
             ui.scope(|ui| {
@@ -487,9 +476,8 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
     let pos = Pos2::new(window_size.x, window_size.y);
     Window::new("Log Window")
         .pivot(Align2::CENTER_CENTER)
-        .default_pos(pos)
-        .fixed_size(window_size)
-        .movable(true)
+        .fixed_pos(pos)
+        .default_size(window_size)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -539,16 +527,17 @@ pub fn show_log_window(ctx: &Context, interface: &mut DownloadManager) {
 }
 
 pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
-    let window_size = vec2(
+    let window_size = vec2(400.0, 200.0);
+
+    let pos = Pos2::new(
         ctx.available_rect().width() / 2.0,
-        ctx.available_rect().height() / 2.0,
+        ctx.available_rect().height() / 2.3,
     );
-    let pos = Pos2::new(window_size.x, window_size.y);
+
     Window::new("Settings window")
         .pivot(Align2::CENTER_CENTER)
-        .default_pos(pos)
+        .fixed_pos(pos)
         .fixed_size(window_size)
-        .movable(true)
         .frame(
             Frame::none()
                 .fill(*DARKER_PURPLE)
@@ -558,7 +547,6 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                     Color32::from_rgba_premultiplied(31, 31, 51, 255),
                 )),
         )
-        .resizable(false)
         .title_bar(false)
         .show(ctx, |ui| {
             let now = Local::now();
