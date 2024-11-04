@@ -1,7 +1,5 @@
 # Rusty Download Manager
 
-![Rusty Download Manager Logo]
-
 Rusty Download Manager is an asynchronous and performant download manager written in Rust. It is designed to provide a feature-rich experience, enabling users to efficiently manage their downloads with ease. Whether you're downloading large files or managing multiple downloads simultaneously, Rusty Download Manager has you covered.
 
 ## Features
