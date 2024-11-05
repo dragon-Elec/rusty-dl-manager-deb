@@ -26,6 +26,7 @@ image = "0.25.4"
 egui-sfml = "0.7.0"
 native-dialog = "0.7.0"
 chrono = "0.4.38"
+url = "2.5.3"
 
 [build-dependencies]
 embed-resource = "2.3"

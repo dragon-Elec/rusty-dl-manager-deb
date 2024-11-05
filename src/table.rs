@@ -278,10 +278,10 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool, new: bool) {
         }
         if res.clicked() && !complete {
             if file.url.range_support {
-                file.switch_status();
+                file.toggle_status();
             }
             if new && !file.url.range_support {
-                file.switch_status();
+                file.toggle_status();
             }
         }
         ui.add_space(3.0);
@@ -295,17 +295,31 @@ fn progress_bar(file: &File2Dl, ui: &mut Ui, ctx: &Context) {
     let size = file.size_on_disk.load(std::sync::atomic::Ordering::Relaxed) as f32;
     let total_size = file.url.content_length as f32;
     let percentage = size / total_size;
+    let complete = file.complete.load(Relaxed);
     ui.vertical(|ui| {
         ui.add_space(1.0);
         ui.scope(|ui| {
             ui.visuals_mut().extreme_bg_color = *GRAY;
             ui.visuals_mut().selection.bg_fill = *CYAN;
             ui.visuals_mut().override_text_color = Some(*DARK_INNER);
-            let mut pb = ProgressBar::new(percentage)
-                .desired_width(ui.available_width())
-                .desired_height(ui.available_height() - 2.0)
-                .text_center(format!("{}%", (percentage * 100.0) as i32));
-            pb.is_indeterminate = is_running;
+            let pb = {
+                if file.url.content_length == 0 && !complete {
+                    ProgressBar::new(0.0)
+                        .desired_width(ui.available_width())
+                        .desired_height(ui.available_height() - 2.0)
+                        .text_center("?".to_string())
+                } else if complete {
+                    ProgressBar::new(1.0)
+                        .desired_width(ui.available_width())
+                        .desired_height(ui.available_height() - 2.0)
+                        .text_center("100%".to_string())
+                } else {
+                    ProgressBar::new(percentage)
+                        .desired_width(ui.available_width())
+                        .desired_height(ui.available_height() - 2.0)
+                        .text_center(format!("{}%", (percentage * 100.0) as i32))
+                }
+            };
             let res = ui.add(pb);
             if res.hovered() {
                 ui.set_width(ui.available_width());

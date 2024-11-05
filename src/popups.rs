@@ -1,5 +1,6 @@
 use crate::{
     dl::file2dl::File2Dl,
+    download_mechanism::Actions,
     extern_windows::{
         show_confirm_window, show_error_window, show_input_window, show_log_window,
         show_modify_speed_window, show_plot_window, show_settings_window,
@@ -74,6 +75,7 @@ impl Default for ErrorPopUp {
 pub struct DownloadPopUp {
     pub link: String,
     pub speed: String,
+    pub temp_action: Actions,
     pub temp_file: Option<File2Dl>,
     pub file_channel: (Sender<File2Dl>, Receiver<File2Dl>),
     pub show: bool,
@@ -85,6 +87,7 @@ impl Default for DownloadPopUp {
         Self {
             link: String::default(),
             speed: String::default(),
+            temp_action: Actions::None,
             temp_file: None,
             file_channel: channel(),
             show: bool::default(),

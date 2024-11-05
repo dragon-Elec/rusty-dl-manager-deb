@@ -1,15 +1,18 @@
-use std::time::Duration;
+use std::{borrow::Borrow, time::Duration};
 
 use super::errors::UrlError;
 use content_disposition::parse_content_disposition;
 use regex::Regex;
 use reqwest::{
-    header::{HeaderMap, ACCEPT_RANGES, CONTENT_DISPOSITION, CONTENT_LENGTH, RANGE},
+    header::{
+        HeaderMap, ACCEPT_ENCODING, ACCEPT_RANGES, CONNECTION, CONTENT_DISPOSITION, CONTENT_LENGTH,
+        HOST, RANGE, USER_AGENT,
+    },
     Client, ClientBuilder,
 };
 
-const URL_RE: &str = r#"(https:\/\/www\.|http:\/\/www\.|https:\/\/|http:\/\/)?[a-zA-Z0-9]{2,}(\.[a-zA-Z0-9]{2,})(\.[a-zA-Z0-9]{2,})?"#;
-const FILENAME_RE: &str = r#"^[\w\s,-]+(\.[\w-]+)*\.[A-Za-z]{3}$"#;
+const FILENAME_RE: &str = r#"^[\w\s,-]+(\.[\w-]+)*\.[A-Za-z0-9]{2,4}$"#;
+const CHROME_AGENT: &str = r#"Mozilla/5.0 (Windows; U; Windows NT 10.5; Win64; x64; en-US) AppleWebKit/537.33 (KHTML, like Gecko) Chrome/50.0.2124.268 Safari/536"#;
 
 #[derive(Debug, Default, Clone)]
 pub struct Url {
@@ -22,11 +25,31 @@ pub struct Url {
 impl Url {
     pub async fn new(link: &str) -> Result<Self, UrlError> {
         //self explanatory
-        Self::is_valid_url(link)?;
+        if url::Url::parse(link).is_err() {
+            return Err(UrlError::InvalidUrl);
+        }
         let client = ClientBuilder::new()
             .timeout(Duration::from_secs(7))
             .build()?;
-        let headers = client.head(link).send().await?.headers().clone();
+        let res = match client
+            .head(link)
+            .header(USER_AGENT, CHROME_AGENT)
+            .header(CONNECTION, "keep-alive")
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(_) => {
+                client
+                    .get(link)
+                    .header(USER_AGENT, CHROME_AGENT)
+                    .header(CONNECTION, "keep-alive")
+                    .send()
+                    .await?
+            }
+        };
+        let headers = res.headers().to_owned();
+        drop(res);
         //parses content length header else content length is 0
         let content_length = headers.content_length().unwrap_or_default();
         //parse name from content disposition header else parse from url else name is empty
@@ -44,15 +67,6 @@ impl Url {
             content_length,
             range_support,
         })
-    }
-
-    fn is_valid_url(link: &str) -> Result<(), UrlError> {
-        //Self explanatory
-        let re = Regex::new(URL_RE).expect("Invalid url regex");
-        if !re.is_match(link) {
-            return Err(super::errors::UrlError::InvalidUrl);
-        }
-        Ok(())
     }
 }
 

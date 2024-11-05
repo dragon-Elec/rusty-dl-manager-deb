@@ -73,7 +73,6 @@ struct DownloadManager {
     files: Vec<FDl>,
     popups: PopUps,
     explorer: Explorer,
-    temp_action: Actions,
     search: String,
     connection: Connection,
     settings: Settings,
@@ -166,7 +165,6 @@ impl DownloadManager {
             explorer,
             settings,
             popups,
-            temp_action: Actions::default(),
             search: String::default(),
             connection: Connection::default(),
             bandwidth: Bandwidth::default(),
@@ -225,7 +223,7 @@ fn main() {
     };
 
     let mut rw = RenderWindow::new(init_size, title, Style::DEFAULT, win_settings).unwrap();
-    rw.set_vertical_sync_enabled(true);
+    rw.set_framerate_limit(60);
 
     let mut sf_egui = SfEgui::new(&rw);
     setup_custom_fonts(sf_egui.context());

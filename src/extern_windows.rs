@@ -107,20 +107,25 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                         visuals.override_text_color = Some(*DARK_INNER);
                         ComboBox::from_label("")
                             .width(370.0)
-                            .selected_text(format!("{:?}", &interface.temp_action))
+                            .selected_text(format!("{:?}", &interface.popups.download.temp_action))
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(
-                                    &mut interface.temp_action,
+                                    &mut interface.popups.download.temp_action,
+                                    Actions::Open,
+                                    "Open",
+                                );
+                                ui.selectable_value(
+                                    &mut interface.popups.download.temp_action,
                                     Actions::None,
                                     "None",
                                 );
                                 ui.selectable_value(
-                                    &mut interface.temp_action,
+                                    &mut interface.popups.download.temp_action,
                                     Actions::Shutdown,
                                     "Shutdown",
                                 );
                                 ui.selectable_value(
-                                    &mut interface.temp_action,
+                                    &mut interface.popups.download.temp_action,
                                     Actions::Reboot,
                                     "Reboot",
                                 );
@@ -189,7 +194,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                         };
                         let speed = (speed * (1024.0 * 1024.0)) as usize;
                         file.speed = Arc::new(AtomicUsize::new(speed));
-                        file.switch_status();
+                        file.toggle_status();
                         let file = FDl {
                             file,
                             has_error: false,
@@ -197,12 +202,12 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                             new: true,
                             initiated: false,
                             selected: false,
-                            action_on_save: interface.temp_action.clone(),
+                            action_on_save: interface.popups.download.temp_action.clone(),
                         };
                         interface.popups.download.show = false;
                         interface.popups.download.error = String::default();
                         interface.popups.download.temp_file = None;
-                        interface.temp_action = Actions::None;
+                        interface.popups.download.temp_action = Actions::None;
                         interface.files.push(file);
                     }
                     ui.add_space(249.0);

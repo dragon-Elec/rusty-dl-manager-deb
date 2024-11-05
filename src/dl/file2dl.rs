@@ -4,11 +4,11 @@ use super::{
     url::Url,
 };
 use futures::StreamExt;
-use reqwest::{header::RANGE, Client, ClientBuilder, Error, Response};
+use reqwest::{header::RANGE, redirect::Policy, Client, ClientBuilder, Error, Response};
 use std::sync::atomic::Ordering::Relaxed;
 use std::{
-    fs::{create_dir, metadata, read_dir, File, OpenOptions},
-    io::{Read, Write},
+    fs::{create_dir, metadata, read_dir, File},
+    io::Read,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicUsize},
@@ -16,7 +16,11 @@ use std::{
     },
     time::Duration,
 };
-use tokio::time::{sleep, Instant};
+use tokio::{
+    fs::OpenOptions,
+    io::AsyncWriteExt,
+    time::{sleep, Instant},
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct File2Dl {
@@ -37,73 +41,63 @@ impl File2Dl {
             create_dir(download_path)?;
         }
         let name_on_disk = generate_name_on_disk(&url.filename, download_path)?;
-        let running = Arc::new(AtomicBool::new(false));
-        let complete = Arc::new(AtomicBool::new(false));
-        let bytes_per_sec = Arc::new(AtomicUsize::new(0));
-        let speed = Arc::new(AtomicUsize::new(0));
-        let dl_dir = download_path.to_string();
         Ok(Self {
             url,
             name_on_disk,
-            speed,
-            bytes_per_sec,
-            dl_dir,
+            speed: Arc::new(AtomicUsize::new(0)),
             size_on_disk: Arc::new(AtomicUsize::new(0)),
-            running,
-            complete,
+            dl_dir: download_path.to_string(),
+            bytes_per_sec: Arc::new(AtomicUsize::new(0)),
+            running: Arc::new(AtomicBool::new(false)),
+            complete: Arc::new(AtomicBool::new(false)),
         })
     }
-    pub fn switch_status(&self) {
+
+    pub fn toggle_status(&self) {
         let status = self.running.load(Relaxed);
         self.running.store(!status, Relaxed);
     }
+
     pub async fn single_thread_dl(&self) -> Result<(), File2DlError> {
-        let client = ClientBuilder::new().build()?;
-        //initialize the request based on the range support
+        let client = ClientBuilder::new().redirect(Policy::limited(15)).build()?;
         let res = init_res(self, &client).await?;
-        //initialize metadata that will help in resume mechanism
         init_metadata(self, &self.dl_dir)?;
         let mut stream = res.bytes_stream();
-        let full_path = Path::new(&self.dl_dir).join(&self.name_on_disk);
+        let file_path = Path::new(&self.dl_dir).join(&self.name_on_disk);
         let mut file = OpenOptions::new()
             .append(true)
             .create(true)
-            .truncate(false)
-            .open(full_path)?;
+            .open(file_path)
+            .await?;
 
-        let mut accum = 0usize;
+        let mut accumulated_bytes = 0usize;
         let mut start_time = Instant::now();
 
-        loop {
+        while let Some(packed_chunk) = stream.next().await {
             if !self.running.load(Relaxed) {
                 sleep(Duration::from_secs(2)).await;
                 continue;
             }
 
-            match stream.next().await {
-                Some(packed_chunk) => {
-                    let chunk = packed_chunk?;
-                    file.write_all(&chunk)?;
-                    self.size_on_disk.fetch_add(chunk.len(), Relaxed);
+            let chunk = packed_chunk?;
+            file.write_all(&chunk).await?;
+            self.size_on_disk.fetch_add(chunk.len(), Relaxed);
+            accumulated_bytes += chunk.len();
 
-                    accum += chunk.len();
-                    let speed_limit = self.speed.load(Relaxed);
-                    if start_time.elapsed() >= Duration::from_secs(1) {
-                        self.bytes_per_sec.store(accum, Relaxed);
-                        start_time = Instant::now();
-                        accum = 0;
-                    }
-                    if speed_limit > 0 && accum >= speed_limit {
-                        let elapsed = start_time.elapsed();
-                        if elapsed < Duration::from_secs(1) {
-                            sleep(Duration::from_secs(1) - elapsed).await;
-                        }
+            if start_time.elapsed() >= Duration::from_secs(1) {
+                self.bytes_per_sec.store(accumulated_bytes, Relaxed);
+                accumulated_bytes = 0;
+                start_time = Instant::now();
+            }
 
-                        accum = 0;
-                        start_time = Instant::now();
-                    }
+            let speed_limit = self.speed.load(Relaxed);
+            if speed_limit > 0 && accumulated_bytes >= speed_limit {
+                let elapsed = start_time.elapsed();
+                if elapsed < Duration::from_secs(1) {
+                    sleep(Duration::from_secs(1) - elapsed).await;
                 }
-                None => break,
+                accumulated_bytes = 0;
+                start_time = Instant::now();
             }
         }
 
