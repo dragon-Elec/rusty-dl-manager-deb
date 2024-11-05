@@ -28,7 +28,6 @@ impl Default for Tray {
             add_dl_tx.send(Message::AddDl).unwrap();
         })
         .unwrap();
-
         let show_tx: SyncSender<Message> = channel.0.clone();
         tray.add_menu_item("Show", move || {
             show_tx.send(Message::Show).unwrap();

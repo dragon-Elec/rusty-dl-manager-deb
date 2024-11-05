@@ -71,6 +71,9 @@ fn update_bandwidth_history(interface: &mut DownloadManager) {
     }
 }
 pub fn run_downloads(interface: &mut DownloadManager) {
+    let retry_interval = interface.settings.retry_interval;
+    let now = Local::now();
+    let formatted_time = now.format("%H:%M:%S").to_string();
     for fdl in interface.files.iter_mut() {
         let file = &fdl.file;
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
@@ -82,59 +85,59 @@ pub fn run_downloads(interface: &mut DownloadManager) {
             .bytes_per_sec
             .load(std::sync::atomic::Ordering::Relaxed);
 
-        if complete {
-            fdl.has_error = false;
-        }
-
-        if is_running {
-            fdl.has_error =
-                speed == 0 && !complete && fdl.toggled_at.elapsed() >= Duration::from_secs(5);
+        fdl.has_error = if complete {
+            false
+        } else if is_running {
+            speed == 0 && fdl.toggled_at.elapsed() >= Duration::from_secs(5)
         } else {
             fdl.toggled_at = Instant::now();
+            false
+        };
+
+        if complete || fdl.initiated {
+            continue;
         }
-        let retry_interval = interface.settings.retry_interval;
-        let now = Local::now();
-        let formatted_time = now.format("%H:%M:%S").to_string();
-        if !complete && !&fdl.initiated {
-            let file = file.clone();
-            let tx_error = interface.popups.error.channel.0.clone();
-            let log_msg = format!("Initiating : {}", &file.url.link);
-            interface
-                .popups
-                .log
-                .logs
-                .push((formatted_time.clone(), log_msg, *GREEN));
-            interface.runtime.spawn(async move {
-                if file.url.range_support {
-                    loop {
-                        match file.single_thread_dl().await {
-                            Ok(_) => break,
-                            Err(e) => {
-                                let error = format!("{}: {:?}\n", file.name_on_disk, e);
-                                tx_error.send(error).unwrap();
-                            }
-                        }
-                        sleep(Duration::from_secs(retry_interval));
-                    }
-                } else if new {
+
+        let file = file.clone();
+        let tx_error = interface.popups.error.channel.0.clone();
+        let log_msg = format!("Initiating : {}", &file.url.link);
+        interface
+            .popups
+            .log
+            .logs
+            .push((formatted_time.clone(), log_msg, *GREEN));
+        interface.runtime.spawn(async move {
+            if file.url.range_support {
+                loop {
                     match file.single_thread_dl().await {
-                        Ok(_) => {}
+                        Ok(_) => break,
                         Err(e) => {
                             let error = format!("{}: {:?}\n", file.name_on_disk, e);
                             tx_error.send(error).unwrap();
                         }
                     }
+                    sleep(Duration::from_secs(retry_interval));
                 }
-            });
+            } else if new {
+                match file.single_thread_dl().await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        let error = format!("{}: {:?}\n", file.name_on_disk, e);
+                        tx_error.send(error).unwrap();
+                    }
+                }
+            }
+        });
 
-            fdl.initiated = true;
-        }
-
-        if let Ok(err) = interface.popups.error.channel.1.try_recv() {
-            fdl.has_error = true;
-            interface.popups.log.logs.push((formatted_time, err, *RED));
-            interface.popups.log.has_error = true;
-        }
+        fdl.initiated = true;
+    }
+    if let Ok(err) = interface.popups.error.channel.1.try_recv() {
+        interface
+            .popups
+            .log
+            .logs
+            .push((formatted_time.clone(), err, *RED));
+        interface.popups.log.has_error = true;
     }
 }
 

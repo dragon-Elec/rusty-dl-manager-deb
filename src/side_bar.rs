@@ -209,7 +209,6 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         let text = format!("{}All", FOLDER);
         RichText::new(text).color(*CYAN).size(15.0)
     };
-    ui.add_space(10.0);
     ui.horizontal(|ui| {
         ui.add_space(5.0);
         let butt = Button::new(text).frame(false);
@@ -224,10 +223,10 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         }
     });
     ui.vertical(|ui| {
-        ui.add_space(10.0);
+        ui.add_space(5.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.binaries.clicked {
                     let text = format!("{}{} Binaries", CARET_RIGHT, BINARY);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -252,7 +251,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.archives.clicked {
                     let text = format!("{}{} Archives", CARET_RIGHT, ARCHIVE);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -277,7 +276,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.audio.clicked {
                     let text = format!("{}{} Audio", CARET_RIGHT, MUSIC_NOTE);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -302,7 +301,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.books.clicked {
                     let text = format!("{}{} Books", CARET_RIGHT, BOOK_BOOKMARK);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -328,7 +327,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.fonts.clicked {
                     let text = format!("{}{} Fonts", CARET_RIGHT, TEXT_AA);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -353,7 +352,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.images.clicked {
                     let text = format!("{}{} Images", CARET_RIGHT, IMAGE);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -378,7 +377,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.sheets.clicked {
                     let text = format!("{}{} Sheets", CARET_RIGHT, NOTE);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -403,7 +402,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.slides.clicked {
                     let text = format!("{}{} Slides", CARET_RIGHT, SLIDESHOW);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -428,7 +427,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.texts.clicked {
                     let text = format!("{}{} Texts", CARET_RIGHT, TEXT_T);
                     RichText::new(text).color(*GREEN).size(15.0)
@@ -453,7 +452,7 @@ pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
         ui.add_space(10.0);
         {
             ui.horizontal(|ui| {
-                ui.add_space(15.0);
+                ui.add_space(20.0);
                 let text = if interface.explorer.types.videos.clicked {
                     let text = format!("{}{} Videos", CARET_RIGHT, VIDEO);
                     RichText::new(text).color(*GREEN).size(15.0)

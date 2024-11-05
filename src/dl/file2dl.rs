@@ -71,27 +71,6 @@ impl File2Dl {
             .truncate(false)
             .open(full_path)?;
 
-        let tracking_clone = self.clone();
-
-        tokio::task::spawn(async move {
-            let mut inst = Instant::now();
-            let mut last_size = tracking_clone.size_on_disk.load(Relaxed);
-            loop {
-                if inst.elapsed() >= Duration::from_secs(1) {
-                    if tracking_clone.running.load(Relaxed) {
-                        let current_size = tracking_clone.size_on_disk.load(Relaxed);
-                        tracking_clone
-                            .bytes_per_sec
-                            .store(current_size - last_size, Relaxed);
-                        last_size = current_size;
-                    } else {
-                        tracking_clone.bytes_per_sec.store(0, Relaxed);
-                    }
-
-                    inst = Instant::now()
-                }
-            }
-        });
         let mut accum = 0usize;
         let mut start_time = Instant::now();
 
@@ -109,7 +88,11 @@ impl File2Dl {
 
                     accum += chunk.len();
                     let speed_limit = self.speed.load(Relaxed);
-
+                    if start_time.elapsed() >= Duration::from_secs(1) {
+                        self.bytes_per_sec.store(accum, Relaxed);
+                        start_time = Instant::now();
+                        accum = 0;
+                    }
                     if speed_limit > 0 && accum >= speed_limit {
                         let elapsed = start_time.elapsed();
                         if elapsed < Duration::from_secs(1) {

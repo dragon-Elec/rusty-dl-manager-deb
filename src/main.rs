@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use colors::{CYAN, DARKER_PURPLE, GREEN, PURPLE};
+use colors::{DARKER_PURPLE, PURPLE};
 use dl::file2dl::File2Dl;
 use download_mechanism::{check_urls, run_downloads, set_total_bandwidth, Actions};
 use egui_aesthetix::{themes::TokyoNight, Aesthetix};
 use egui_sfml::{
-    egui::{Button, Color32, Context, CursorIcon, FontData, FontDefinitions, Id, Layout, RichText},
+    egui::{Color32, Context, FontData, FontDefinitions, Id},
     sfml::{
         graphics::{FloatRect, RenderTarget, RenderWindow, View},
         window::{ContextSettings, Event, Style},
@@ -85,10 +85,11 @@ struct DownloadManager {
 impl DownloadManager {
     fn update(&mut self, ctx: &egui_sfml::egui::Context) {
         if !self.show_window {
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(300));
         }
         handle_popups(self, ctx);
-
+        set_total_bandwidth(self);
+        check_connection(self);
         egui_sfml::egui::TopBottomPanel::top(Id::new("Top"))
             .default_height(40.0)
             .resizable(false)
@@ -111,9 +112,9 @@ impl DownloadManager {
             });
         egui_sfml::egui::SidePanel::left(Id::new("left"))
             .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
-            .exact_width(140.0)
-            .show_separator_line(true)
+            .exact_width(150.0)
             .resizable(false)
+            .show_separator_line(true)
             .show(ctx, |ui| {
                 lay_side_bar_content(self, ui);
             });
@@ -137,7 +138,6 @@ impl DownloadManager {
             .enable_all()
             .build()
             .expect("Failed to build runtime");
-
         let settings_path = Path::new("settings.json");
         let settings = if settings_path.exists() {
             Settings::parse().expect("Couldn't parse settings")
@@ -237,10 +237,8 @@ fn main() {
     });
     while rw.is_open() {
         run_downloads(&mut state);
-        set_total_bandwidth(&mut state);
         handle_tray_events(&mut state);
         check_urls(&mut state);
-        check_connection(&mut state);
         while let Some(ev) = rw.poll_event() {
             sf_egui.add_event(&ev);
             if matches!(ev, Event::Closed) {

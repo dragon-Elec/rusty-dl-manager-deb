@@ -130,14 +130,12 @@ pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
 pub fn check_connection(interface: &mut DownloadManager) {
     if !interface.connection.initiated {
         let tx = interface.connection.channel.0.clone();
-        interface.runtime.spawn(async move {
-            loop {
-                let is_connected = tcp_ping();
-                if let Err(e) = tx.send(is_connected) {
-                    println!("Failed to send connection status: {}", e);
-                }
-                sleep(Duration::from_secs(5));
+        interface.runtime.spawn_blocking(move || loop {
+            let is_connected = tcp_ping();
+            if let Err(e) = tx.send(is_connected) {
+                println!("Failed to send connection status: {}", e);
             }
+            sleep(Duration::from_secs(5));
         });
         interface.connection.initiated = true;
     }
@@ -150,5 +148,6 @@ pub fn check_connection(interface: &mut DownloadManager) {
 fn tcp_ping() -> bool {
     let address = "8.8.8.8:53";
     let timeout = Duration::from_secs(3);
+
     TcpStream::connect_timeout(&address.parse().unwrap(), timeout).is_ok()
 }
