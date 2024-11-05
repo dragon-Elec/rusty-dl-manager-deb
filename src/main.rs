@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use server::interception::init_server;
 use side_bar::{lay_side_bar_content, Explorer};
-use status_bar::{check_connection, init_status_bar, Connection};
+use status_bar::{check_connection, init_status_bar, update_connected, Connection};
 use std::{
     fs::File,
     io::{Read, Write},
@@ -89,7 +89,7 @@ impl DownloadManager {
         }
         handle_popups(self, ctx);
         set_total_bandwidth(self);
-        check_connection(self);
+        update_connected(self);
         egui_sfml::egui::TopBottomPanel::top(Id::new("Top"))
             .default_height(40.0)
             .resizable(false)
@@ -231,6 +231,7 @@ fn main() {
     setup_custom_fonts(sf_egui.context());
 
     let mut state = DownloadManager::default();
+    check_connection(&mut state);
 
     state.runtime.spawn_blocking(move || {
         init_server().unwrap_or_default();

@@ -10,7 +10,6 @@ use std::{
 #[derive(Debug)]
 pub struct Connection {
     connected: bool,
-    initiated: bool,
     channel: (Sender<bool>, Receiver<bool>),
 }
 impl Default for Connection {
@@ -18,8 +17,13 @@ impl Default for Connection {
         Self {
             channel: channel(),
             connected: false,
-            initiated: false,
         }
+    }
+}
+
+pub fn update_connected(interface: &mut DownloadManager) {
+    if let Ok(val) = interface.connection.channel.1.try_recv() {
+        interface.connection.connected = val;
     }
 }
 
@@ -128,21 +132,14 @@ pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
 }
 
 pub fn check_connection(interface: &mut DownloadManager) {
-    if !interface.connection.initiated {
-        let tx = interface.connection.channel.0.clone();
-        interface.runtime.spawn_blocking(move || loop {
-            let is_connected = tcp_ping();
-            if let Err(e) = tx.send(is_connected) {
-                println!("Failed to send connection status: {}", e);
-            }
-            sleep(Duration::from_secs(5));
-        });
-        interface.connection.initiated = true;
-    }
-
-    while let Ok(val) = interface.connection.channel.1.try_recv() {
-        interface.connection.connected = val;
-    }
+    let tx = interface.connection.channel.0.clone();
+    interface.runtime.spawn_blocking(move || loop {
+        let is_connected = tcp_ping();
+        if let Err(e) = tx.send(is_connected) {
+            println!("Failed to send connection status: {}", e);
+        }
+        sleep(Duration::from_secs(5));
+    });
 }
 
 fn tcp_ping() -> bool {
