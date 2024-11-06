@@ -33,12 +33,15 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
         ctx.available_rect().width() / 2.0,
         ctx.available_rect().height() / 2.3,
     );
+    let now = Local::now();
+    let formatted_time = now.format("%H:%M:%S").to_string();
     interface.show_window = true;
     let dl_dir = interface.settings.dl_dir.clone();
     Window::new("Download window")
         .pivot(Align2::CENTER_CENTER)
         .fixed_pos(pos)
         .default_size(window_size)
+        .resizable(false)
         .frame(
             Frame::default()
                 .fill(*DARKER_PURPLE)
@@ -71,7 +74,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                     let single_line = TextEdit::singleline(&mut interface.popups.download.link)
                         .text_color(*PURPLE)
                         .hint_text("Link")
-                        .desired_width(350.0);
+                        .desired_width(360.0);
                     ui.add(single_line);
                 });
                 ui.horizontal(|ui| {
@@ -158,20 +161,20 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                             let tx = interface.popups.download.error_channel.0.clone();
                             let file_tx = interface.popups.download.file_channel.0.clone();
                             let link = interface.popups.download.link.clone();
-                            let now = Local::now();
-                            let formatted_time = now.format("%H:%M:%S").to_string();
+
                             let text = format!("Adding link:{}", &link);
                             interface
                                 .popups
                                 .log
                                 .logs
-                                .push((formatted_time, text, *GREEN));
+                                .push((formatted_time.clone(), text, *GREEN));
                             interface.popups.download.error = String::from("Initiating...");
                             interface.runtime.spawn(async move {
                                 match File2Dl::new(&link, &dl_dir).await {
                                     Ok(file) => file_tx.send(file).unwrap(),
                                     Err(e) => {
-                                        tx.send(e.to_string()).unwrap();
+                                        let dbg_err = format!("{:?}", e);
+                                        tx.send(dbg_err).unwrap();
                                     }
                                 };
                             });
@@ -179,7 +182,9 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                     });
 
                     if let Ok(err) = interface.popups.download.error_channel.1.try_recv() {
+                        let msg = format!("{}: {}", &interface.popups.download.link, &err);
                         interface.popups.download.error = err;
+                        interface.popups.log.logs.push((formatted_time, msg, *RED));
                         return;
                     }
                     if let Ok(file) = interface.popups.download.file_channel.1.try_recv() {
@@ -387,7 +392,10 @@ pub fn show_modify_speed_window(ctx: &Context, interface: &mut DownloadManager) 
         .show(ctx, |ui| {
             ui.vertical_centered_justified(|ui| {
                 ui.colored_label(*CYAN, "Modify speed");
+                ui.add_space(5.0);
             });
+            ui.separator();
+            ui.add_space(10.0);
             if !interface.popups.speed.error.is_empty() {
                 ui.vertical_centered(|ui| {
                     ui.colored_label(*RED, &interface.popups.speed.error);
@@ -571,6 +579,7 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
             let formatted_time = now.format("%H:%M:%S").to_string();
             ui.vertical_centered(|ui| {
                 ui.colored_label(*CYAN, "Change settings");
+                ui.separator();
                 ui.add_space(20.0);
                 if !interface.popups.settings.error.is_empty() {
                     ui.colored_label(*RED, &interface.popups.settings.error);

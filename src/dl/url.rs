@@ -29,17 +29,18 @@ impl Url {
             return Err(UrlError::InvalidUrl);
         }
         let client = ClientBuilder::new()
-            .timeout(Duration::from_secs(7))
+            .timeout(Duration::from_secs(15))
             .build()?;
-        let res = match client
+        let head_request = client
             .head(link)
             .header(USER_AGENT, CHROME_AGENT)
             .header(CONNECTION, "keep-alive")
             .send()
-            .await
-        {
-            Ok(r) => r,
-            Err(_) => {
+            .await;
+        let res = {
+            if let Ok(r) = head_request {
+                r
+            } else {
                 client
                     .get(link)
                     .header(USER_AGENT, CHROME_AGENT)

@@ -202,6 +202,7 @@ impl Default for Types {
     }
 }
 pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
+    ui.add_space(5.0);
     let text = if interface.explorer.types.all.clicked {
         let text = format!("{}{}All", CARET_RIGHT, FOLDER);
         RichText::new(text).color(*GREEN).size(15.0)

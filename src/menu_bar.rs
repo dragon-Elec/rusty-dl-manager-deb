@@ -18,10 +18,6 @@ pub fn init_menu_bar(interface: &mut DownloadManager, ui: &mut egui_sfml::egui::
                 });
                 let text = RichText::new("Downloads").color(*CYAN).strong().size(15.0);
                 ui.menu_button(text, |ui| {
-                    let text = RichText::new("Add Download").color(*CYAN).strong();
-                    if ui.button(text).clicked() {
-                        interface.popups.download.show = true;
-                    }
                     let text = RichText::new("Resume all").color(*CYAN).strong();
                     if ui.button(text).clicked() {
                         for core in interface.files.iter_mut() {
@@ -37,23 +33,6 @@ pub fn init_menu_bar(interface: &mut DownloadManager, ui: &mut egui_sfml::egui::
                                 .running
                                 .store(false, std::sync::atomic::Ordering::Relaxed);
                         }
-                    }
-                    let text = RichText::new("Delete all completed").color(*CYAN).strong();
-                    if ui.button(text).clicked() {
-                        interface.files.retain(|core| {
-                            !core
-                                .file
-                                .complete
-                                .load(std::sync::atomic::Ordering::Relaxed)
-                        });
-                    }
-                    let text = RichText::new("Delete all incomplete").color(*CYAN).strong();
-                    if ui.button(text).clicked() {
-                        interface.files.retain(|core| {
-                            core.file
-                                .complete
-                                .load(std::sync::atomic::Ordering::Relaxed)
-                        });
                     }
                 });
             });
