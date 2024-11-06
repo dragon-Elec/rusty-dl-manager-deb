@@ -159,11 +159,19 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                         });
                     });
                     row.col(|ui| {
-                        match fdl.action_on_save {
+                        let file_to_change = interface
+                            .files
+                            .iter_mut()
+                            .find(|f| f.file.name_on_disk == fdl.file.name_on_disk)
+                            .unwrap();
+
+                        match file_to_change.action_on_save {
                             Actions::Open if complete => {
-                                let path = format!("Downloads/{}", fdl.file.name_on_disk);
+                                let path = format!("{}/{}", fdl.file.dl_dir, fdl.file.name_on_disk);
                                 match opener::open(path) {
-                                    Ok(_) => {}
+                                    Ok(_) => {
+                                        let _ = file_to_change.action_on_save == Actions::None;
+                                    }
                                     Err(e) => {
                                         interface.popups.error.value = e.to_string();
                                         interface.popups.error.show = true;
@@ -191,26 +199,29 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                             if !complete {
                                 ui.centered_and_justified(|ui| {
                                     egui_sfml::egui::ComboBox::from_label("")
-                                        .selected_text(format!("{:?}", fdl.action_on_save))
+                                        .selected_text(format!(
+                                            "{:?}",
+                                            file_to_change.action_on_save
+                                        ))
                                         .width(available_width * 0.2)
                                         .show_ui(ui, |ui| {
                                             ui.selectable_value(
-                                                &mut fdl.action_on_save,
+                                                &mut file_to_change.action_on_save,
                                                 Actions::None,
                                                 "None",
                                             );
                                             ui.selectable_value(
-                                                &mut fdl.action_on_save,
+                                                &mut file_to_change.action_on_save,
                                                 Actions::Open,
                                                 "Open",
                                             );
                                             ui.selectable_value(
-                                                &mut fdl.action_on_save,
+                                                &mut file_to_change.action_on_save,
                                                 Actions::Shutdown,
                                                 "Shutdown",
                                             );
                                             ui.selectable_value(
-                                                &mut fdl.action_on_save,
+                                                &mut file_to_change.action_on_save,
                                                 Actions::Reboot,
                                                 "Reboot",
                                             );
@@ -224,7 +235,7 @@ pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
                                         .selected_text(format!("{:?}", fdl.action_on_save))
                                         .show_ui(ui, |ui| {
                                             ui.selectable_value(
-                                                &mut fdl.action_on_save,
+                                                &mut file_to_change.action_on_save,
                                                 Actions::None,
                                                 "None",
                                             );
@@ -341,7 +352,7 @@ fn file_name(has_error: bool, name: &str, ui: &mut Ui) {
         RichText::new(name).strong().size(15.0)
     };
 
-    let label = Label::new(text).wrap_mode(TextWrapMode::Truncate);
+    let label = Label::new(text).truncate();
     ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
         ui.horizontal_centered(|ui| {
             ui.add(label);

@@ -118,9 +118,7 @@ pub fn init_status_bar(interface: &mut DownloadManager, ui: &mut Ui) {
                 let res = ui.add(butt);
                 if res.hovered() {
                     ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-                    let bw_mbs = interface.bandwidth.total_bandwidth as f64 / (1024.0 * 1024.0);
-                    let bw_formatted = format!("{:.2} MBs", bw_mbs);
-                    let text = RichText::new(bw_formatted.to_string()).color(*CYAN);
+                    let text = RichText::new("Live plotting of download speed").color(*CYAN);
                     res.show_tooltip_text(text);
                 }
                 if res.clicked() {

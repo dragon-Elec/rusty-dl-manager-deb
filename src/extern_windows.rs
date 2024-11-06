@@ -340,10 +340,11 @@ pub fn show_plot_window(ctx: &Context, interface: &mut DownloadManager) {
             ui.centered_and_justified(|ui| {
                 egui_plot::Plot::new("plot")
                     .allow_zoom(false)
-                    .allow_drag(true)
+                    .allow_drag(false)
                     .allow_scroll(false)
                     .height(ui.available_height() - 40.0)
                     .width(ui.available_width())
+                    .show_grid(false)
                     .show_x(false)
                     .show_y(false)
                     .legend(Legend::default())
@@ -580,10 +581,12 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
             ui.vertical_centered(|ui| {
                 ui.colored_label(*CYAN, "Change settings");
                 ui.separator();
-                ui.add_space(20.0);
+                ui.add_space(10.0);
                 if !interface.popups.settings.error.is_empty() {
                     ui.colored_label(*RED, &interface.popups.settings.error);
                 }
+                ui.colored_label(*CYAN, "Download path:");
+                ui.add_space(10.0);
                 ui.horizontal(|ui| {
                     ui.add_space(ui.available_width() / 2.0 - 155.0);
                     ui.visuals_mut().extreme_bg_color = *CYAN;
@@ -602,8 +605,8 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                         let path = FileDialog::new().show_open_single_dir().unwrap();
                         match path {
                             Some(path) => {
-                                interface.popups.settings.dl_dir =
-                                    path.to_string_lossy().to_string();
+                                let path = path.to_string_lossy().to_string();
+                                interface.popups.settings.dl_dir = path;
                             }
                             None => {
                                 interface.popups.settings.error =
@@ -619,7 +622,9 @@ pub fn show_settings_window(ctx: &Context, interface: &mut DownloadManager) {
                 });
             });
             ui.vertical_centered(|ui| {
-                ui.add_space(10.0);
+                ui.add_space(5.0);
+                ui.colored_label(*CYAN, "Retry interval:");
+                ui.add_space(5.0);
                 ui.visuals_mut().extreme_bg_color = *CYAN;
                 ui.visuals_mut().override_text_color = Some(*DARKER_PURPLE);
                 let hint = RichText::new("Download retry interval in secs").color(*GRAY);

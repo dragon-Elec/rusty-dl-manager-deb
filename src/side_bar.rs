@@ -202,6 +202,38 @@ impl Default for Types {
     }
 }
 pub fn lay_side_bar_content(interface: &mut DownloadManager, ui: &mut Ui) {
+    ui.add_space(10.0);
+    ui.vertical_centered_justified(|ui| {
+        let dl_in_mbs = interface.bandwidth.total_bandwidth as f64 / (1024.0 * 1024.0);
+        let formatted = format!(
+            "{}{:.1}Mbs/s",
+            egui_phosphor::regular::ARROW_DOWN,
+            dl_in_mbs
+        );
+        let text = RichText::new(formatted).size(20.0);
+        let res = ui.colored_label(*GREEN, text);
+        if res.hovered() {
+            let text = RichText::new("Total download speed").color(*CYAN);
+            res.show_tooltip_text(text);
+        }
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.scope(|ui| {
+                ui.visuals_mut().extreme_bg_color = *CYAN;
+                ui.visuals_mut().override_text_color = Some(*PURPLE);
+                let hint_text = RichText::new("Filename or Url").color(*GRAY);
+                let single_line = TextEdit::singleline(&mut interface.search).hint_text(hint_text);
+                ui.add_sized((180.0, 17.0), single_line);
+            });
+            let text = egui_sfml::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS)
+                .size(19.0)
+                .color(*CYAN);
+            if ui.label(text).hovered() {
+                ui.output_mut(|o| o.cursor_icon = CursorIcon::Default)
+            }
+            ui.add_space(1.0);
+        });
+    });
     ui.add_space(5.0);
     let text = if interface.explorer.types.all.clicked {
         let text = format!("{}{}All", CARET_RIGHT, FOLDER);

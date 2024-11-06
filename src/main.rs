@@ -111,8 +111,8 @@ impl DownloadManager {
             });
         egui_sfml::egui::SidePanel::left(Id::new("left"))
             .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
-            .exact_width(150.0)
-            .resizable(false)
+            .default_width(150.0)
+            .resizable(true)
             .show_separator_line(true)
             .show(ctx, |ui| {
                 lay_side_bar_content(self, ui);
@@ -152,7 +152,12 @@ impl DownloadManager {
         let popups = PopUps {
             error: Self::create_error_popup(&settings.dl_dir),
             download: DownloadPopUp::default(),
-            settings: SettingsPopUp::default(),
+            settings: SettingsPopUp {
+                show: false,
+                temp_str: settings.retry_interval.to_string(),
+                dl_dir: settings.dl_dir.clone(),
+                error: String::default(),
+            },
             confirm: ConfirmPopUp::default(),
             plot: PLotPopUp::default(),
             speed: EditSpeedPopUp::default(),
@@ -210,6 +215,20 @@ struct FDl {
     initiated: bool,
     selected: bool,
     action_on_save: Actions,
+}
+
+impl Default for FDl {
+    fn default() -> Self {
+        Self {
+            file: File2Dl::default(),
+            has_error: false,
+            new: true,
+            toggled_at: Instant::now(),
+            initiated: false,
+            selected: false,
+            action_on_save: Actions::None,
+        }
+    }
 }
 
 fn main() {

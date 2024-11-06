@@ -36,25 +36,7 @@ pub fn init_menu_bar(interface: &mut DownloadManager, ui: &mut egui_sfml::egui::
                     }
                 });
             });
-        });
-        ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-            ui.add_space(5.0);
-
-            let text = egui_sfml::egui::RichText::new(egui_phosphor::regular::MAGNIFYING_GLASS)
-                .size(19.0)
-                .color(*CYAN);
-            if ui.label(text).hovered() {
-                ui.output_mut(|o| o.cursor_icon = CursorIcon::Default)
-            }
-
-            ui.scope(|ui| {
-                ui.visuals_mut().extreme_bg_color = *CYAN;
-                ui.set_width(250.0);
-                ui.visuals_mut().override_text_color = Some(*PURPLE);
-                let hint_text = RichText::new("Filename or Url").color(*GRAY);
-                let single_line = TextEdit::singleline(&mut interface.search).hint_text(hint_text);
-                ui.add(single_line);
-            });
+            ui.add_space(7.0);
         });
     });
 }

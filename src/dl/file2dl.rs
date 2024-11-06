@@ -75,6 +75,7 @@ impl File2Dl {
 
         while let Some(packed_chunk) = stream.next().await {
             if !self.running.load(Relaxed) {
+                self.bytes_per_sec.store(0, Relaxed);
                 sleep(Duration::from_secs(2)).await;
                 continue;
             }
