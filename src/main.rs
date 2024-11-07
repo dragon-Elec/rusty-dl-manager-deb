@@ -67,6 +67,11 @@ impl Settings {
         Ok(settings)
     }
 }
+#[derive(Default)]
+struct Select {
+    select_all: bool,
+    initial_state: bool,
+}
 
 struct DownloadManager {
     runtime: Runtime,
@@ -74,6 +79,7 @@ struct DownloadManager {
     popups: PopUps,
     explorer: Explorer,
     search: String,
+    select: Select,
     connection: Connection,
     settings: Settings,
     bandwidth: Bandwidth,
@@ -168,6 +174,7 @@ impl DownloadManager {
             runtime,
             files,
             explorer,
+            select: Select::default(),
             settings,
             popups,
             search: String::default(),
@@ -193,15 +200,19 @@ impl DownloadManager {
         let files = File2Dl::from(&settings.dl_dir)?;
         Ok(files
             .into_iter()
-            .map(|file| FDl {
-                file,
-                new: false,
-                has_error: false,
-                got_notif: false,
-                toggled_at: Instant::now(),
-                initiated: false,
-                selected: false,
-                action_on_save: Actions::default(),
+            .map(|file| {
+                let is_complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
+                FDl {
+                    file,
+                    new: false,
+                    has_error: false,
+                    initial_status: is_complete,
+                    got_notif: false,
+                    toggled_at: Instant::now(),
+                    initiated: false,
+                    selected: false,
+                    action_on_save: Actions::default(),
+                }
             })
             .collect())
     }
@@ -212,6 +223,7 @@ struct FDl {
     file: File2Dl,
     has_error: bool,
     got_notif: bool,
+    initial_status: bool,
     new: bool,
     toggled_at: Instant,
     initiated: bool,
@@ -225,6 +237,7 @@ impl Default for FDl {
             file: File2Dl::default(),
             has_error: false,
             got_notif: false,
+            initial_status: false,
             new: true,
             toggled_at: Instant::now(),
             initiated: false,

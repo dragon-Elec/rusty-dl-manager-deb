@@ -14,25 +14,26 @@ use std::sync::atomic::Ordering::Relaxed;
 
 pub fn lay_table(interface: &mut DownloadManager, ui: &mut Ui, ctx: &Context) {
     let available_width = ui.available_width();
-    let mut select_size = 0f32;
     TableBuilder::new(ui)
         .auto_shrink(false)
         .striped(false)
-        .column(Column::exact(available_width * 0.02))
-        .column(Column::initial(available_width * 0.1857))
+        .column(Column::exact(available_width * 0.04))
+        .column(Column::initial(available_width * 0.1855))
         .column(Column::initial(available_width * 0.255))
         .column(Column::initial(available_width * 0.15))
-        .column(Column::initial(available_width * 0.2))
-        .column(Column::initial(available_width * 0.1857))
+        .column(Column::initial(available_width * 0.17))
+        .column(Column::initial(available_width * 0.1995))
         .header(20.0, |mut header| {
             header.col(|ui| {
-                select_size = ui.available_width();
-                ui.heading("");
+                select_logic(interface);
+                ui.vertical_centered(|ui| {
+                    ui.add_space(2.0);
+                    ui.add(Checkbox::without_text(&mut interface.select.select_all));
+                });
             });
             header.col(|ui| {
                 let text = RichText::new("Filename").color(*CYAN).strong();
-                ui.horizontal(|ui| {
-                    ui.add_space(ui.available_width() / 2.0 - (74.0 - select_size / 2.0));
+                ui.horizontal_centered(|ui| {
                     ui.heading(text);
                 });
 
@@ -274,9 +275,9 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool, new: bool) {
 
         Button::new(button_text).frame(false)
     };
-    ui.vertical(|ui| {
-        ui.add_space(3.0);
-        let res = ui.add_sized((ui.available_width(), ui.available_height() - 6.0), but);
+    ui.horizontal(|ui: &mut Ui| {
+        ui.add_space(ui.available_width() / 3.8);
+        let res = ui.add(but);
         if res.hovered() && !complete {
             if file.url.range_support {
                 ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand)
@@ -295,7 +296,6 @@ fn action_button(file: &File2Dl, ui: &mut Ui, complete: bool, new: bool) {
                 file.toggle_status();
             }
         }
-        ui.add_space(3.0);
     });
 }
 fn progress_bar(file: &File2Dl, ui: &mut Ui, ctx: &Context) {
@@ -387,5 +387,25 @@ fn shutdown_system() {
             .args(&["/s", "/t", "0"])
             .spawn()
             .expect("Failed to shutdown");
+    }
+}
+
+fn select_logic(interface: &mut DownloadManager) {
+    let select_all = interface.select.select_all;
+    let initial_state = interface.select.initial_state;
+
+    if initial_state != select_all {
+        for file in &mut interface.files {
+            file.selected = select_all;
+        }
+        interface.select.initial_state = select_all;
+    }
+    if interface.files.is_empty() {
+        interface.select.select_all = false;
+        interface.select.initial_state = false;
+    } else {
+        let all_selected = interface.files.iter().all(|file| file.selected);
+        interface.select.select_all = all_selected;
+        interface.select.initial_state = all_selected;
     }
 }

@@ -204,6 +204,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                             file,
                             has_error: false,
                             got_notif: false,
+                            initial_status: false,
                             toggled_at: Instant::now(),
                             new: true,
                             initiated: false,

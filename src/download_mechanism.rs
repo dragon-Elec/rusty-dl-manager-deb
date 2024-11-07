@@ -80,18 +80,18 @@ pub fn run_downloads(interface: &mut DownloadManager) {
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
         let new = fdl.new;
 
-        if new && complete && !fdl.got_notif {
-            let text = format!("{} finished downloading", &file.name_on_disk);
-            let noti = Notification::new()
-                .summary("Download complete")
-                .body(&text)
-                .icon("/home/numerouscuts/Coding/final-dl-manager/icon.png")
-                .show();
-            match noti {
-                Ok(_) => {
-                    fdl.got_notif = true;
-                }
-                Err(e) => {
+        if complete && !fdl.initial_status && !fdl.got_notif {
+            if interface.show_window {
+                fdl.got_notif = true;
+            } else {
+                let text = format!("{} finished downloading", &file.name_on_disk);
+                fdl.got_notif = true;
+                let noti = Notification::new()
+                    .summary("Download complete")
+                    .body(&text)
+                    .icon("/home/numerouscuts/Coding/final-dl-manager/icon.png")
+                    .show();
+                if let Err(e) = noti {
                     let text = format!("Notification error: {:?}", e);
                     interface
                         .popups
