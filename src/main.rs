@@ -112,7 +112,7 @@ impl DownloadManager {
         egui_sfml::egui::SidePanel::left(Id::new("left"))
             .frame(egui_sfml::egui::Frame::none().fill(*DARKER_PURPLE))
             .default_width(150.0)
-            .resizable(true)
+            .resizable(false)
             .show_separator_line(true)
             .show(ctx, |ui| {
                 lay_side_bar_content(self, ui);
@@ -197,6 +197,7 @@ impl DownloadManager {
                 file,
                 new: false,
                 has_error: false,
+                got_notif: false,
                 toggled_at: Instant::now(),
                 initiated: false,
                 selected: false,
@@ -210,6 +211,7 @@ impl DownloadManager {
 struct FDl {
     file: File2Dl,
     has_error: bool,
+    got_notif: bool,
     new: bool,
     toggled_at: Instant,
     initiated: bool,
@@ -222,6 +224,7 @@ impl Default for FDl {
         Self {
             file: File2Dl::default(),
             has_error: false,
+            got_notif: false,
             new: true,
             toggled_at: Instant::now(),
             initiated: false,
@@ -300,7 +303,6 @@ fn setup_custom_fonts(ctx: &Context) {
         "my_font".to_owned(),
         FontData::from_static(include_bytes!("../JetBrainsMono-Regular.ttf")),
     );
-
     fonts
         .families
         .entry(egui_sfml::egui::FontFamily::Proportional)

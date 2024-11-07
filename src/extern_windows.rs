@@ -114,13 +114,13 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(
                                     &mut interface.popups.download.temp_action,
-                                    Actions::Open,
-                                    "Open",
+                                    Actions::None,
+                                    "None",
                                 );
                                 ui.selectable_value(
                                     &mut interface.popups.download.temp_action,
-                                    Actions::None,
-                                    "None",
+                                    Actions::Open,
+                                    "Open",
                                 );
                                 ui.selectable_value(
                                     &mut interface.popups.download.temp_action,
@@ -203,6 +203,7 @@ pub fn show_input_window(ctx: &Context, interface: &mut DownloadManager) {
                         let file = FDl {
                             file,
                             has_error: false,
+                            got_notif: false,
                             toggled_at: Instant::now(),
                             new: true,
                             initiated: false,

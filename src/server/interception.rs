@@ -10,10 +10,9 @@ struct Url {
 }
 
 #[handler]
-fn get_url(res: Json<Url>) -> String {
+fn get_url(res: Json<Url>) {
     let mut state = SERVER_STATE.try_lock().unwrap();
     state.push(res.value.clone());
-    format!("Received: {}", res.value)
 }
 
 #[handler]
@@ -23,10 +22,10 @@ fn handle_head() -> StatusCode {
 
 #[tokio::main]
 pub async fn init_server() -> Result<(), std::io::Error> {
-    if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "poem=debug");
-    }
-    tracing_subscriber::fmt::init();
+    // if std::env::var_os("RUST_LOG").is_none() {
+    //     std::env::set_var("RUST_LOG", "poem=debug");
+    // }
+    // tracing_subscriber::fmt::init();
 
     let app = Route::new().at("/", post(get_url).head(handle_head));
 

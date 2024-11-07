@@ -1,4 +1,5 @@
 use chrono::Local;
+use notify_rust::Notification;
 
 use crate::{
     colors::{GREEN, RED},
@@ -78,8 +79,34 @@ pub fn run_downloads(interface: &mut DownloadManager) {
         let file = &fdl.file;
         let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
         let new = fdl.new;
-        let is_running = file.running.load(std::sync::atomic::Ordering::Relaxed);
 
+        if new && complete && !fdl.got_notif {
+            let text = format!("{} finished downloading", &file.name_on_disk);
+            let noti = Notification::new()
+                .summary("Download complete")
+                .body(&text)
+                .icon("/home/numerouscuts/Coding/final-dl-manager/icon.png")
+                .show();
+            match noti {
+                Ok(_) => {
+                    fdl.got_notif = true;
+                }
+                Err(e) => {
+                    let text = format!("Notification error: {:?}", e);
+                    interface
+                        .popups
+                        .log
+                        .logs
+                        .push((formatted_time.clone(), text, *RED));
+                }
+            }
+        }
+
+        if complete || fdl.initiated {
+            continue;
+        }
+
+        let is_running = file.running.load(std::sync::atomic::Ordering::Relaxed);
         let speed = fdl
             .file
             .bytes_per_sec
@@ -93,10 +120,6 @@ pub fn run_downloads(interface: &mut DownloadManager) {
             fdl.toggled_at = Instant::now();
             false
         };
-
-        if complete || fdl.initiated {
-            continue;
-        }
 
         let file = file.clone();
         let tx_error = interface.popups.error.channel.0.clone();

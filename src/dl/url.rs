@@ -1,12 +1,12 @@
-use std::{borrow::Borrow, time::Duration};
+use std::time::Duration;
 
 use super::errors::UrlError;
 use content_disposition::parse_content_disposition;
 use regex::Regex;
 use reqwest::{
     header::{
-        HeaderMap, ACCEPT_ENCODING, ACCEPT_RANGES, CONNECTION, CONTENT_DISPOSITION, CONTENT_LENGTH,
-        HOST, RANGE, USER_AGENT,
+        HeaderMap, ACCEPT_RANGES, CONNECTION, CONTENT_DISPOSITION, CONTENT_LENGTH, RANGE,
+        USER_AGENT,
     },
     Client, ClientBuilder,
 };

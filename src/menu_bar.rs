@@ -1,9 +1,9 @@
 use crate::{
-    colors::{CYAN, GRAY, GREEN, PURPLE, RED},
+    colors::{CYAN, GREEN, RED},
     DownloadManager,
 };
 use chrono::Local;
-use egui_sfml::egui::{menu, Align, Color32, CursorIcon, Layout, RichText, TextEdit};
+use egui_sfml::egui::{menu, Color32, RichText};
 use std::{fs::remove_file, path::Path};
 
 pub fn init_menu_bar(interface: &mut DownloadManager, ui: &mut egui_sfml::egui::Ui) {
