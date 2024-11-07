@@ -90,6 +90,34 @@ fn file_button_content(interface: &mut DownloadManager, ui: &mut egui_sfml::egui
         interface.popups.confirm.show = true;
         interface.popups.confirm.text = String::from("This will remove all files from disk")
     }
+    let text = RichText::new("Remove complete from list")
+        .color(*CYAN)
+        .strong();
+    if ui.button(text).clicked() {
+        interface.popups.confirm.color = *GREEN;
+        interface.popups.confirm.task = Box::new(|| {
+            Box::new(move |app: &mut DownloadManager| {
+                delete_complete_from_list(app);
+            })
+        });
+        interface.popups.confirm.show = true;
+        interface.popups.confirm.text =
+            String::from("This will remove all complete files from list")
+    }
+    let text = RichText::new("Remove complete from disk")
+        .color(*CYAN)
+        .strong();
+    if ui.button(text).clicked() {
+        interface.popups.confirm.color = *RED;
+        interface.popups.confirm.task = Box::new(|| {
+            Box::new(move |app: &mut DownloadManager| {
+                delete_complete_from_disk(app);
+            })
+        });
+        interface.popups.confirm.show = true;
+        interface.popups.confirm.text =
+            String::from("This will remove all complete files from disk")
+    }
 }
 fn delete_all_files_from_disk(interface: &mut DownloadManager) {
     let mut is_ok = true;
@@ -195,4 +223,53 @@ fn remove_selected_from_disk(app: &mut DownloadManager) {
         }
         true
     });
+}
+
+fn delete_complete_from_list(app: &mut DownloadManager) {
+    let now = Local::now();
+    let formatted_time = now.format("%H:%M:%S").to_string();
+    app.files
+        .retain(|f| !f.file.complete.load(std::sync::atomic::Ordering::Relaxed));
+    app.popups.log.logs.push((
+        formatted_time,
+        String::from("Delete complete downloads from list"),
+        *CYAN,
+    ));
+}
+
+fn delete_complete_from_disk(app: &mut DownloadManager) {
+    let now = Local::now();
+    let formatted_time = now.format("%H:%M:%S").to_string();
+    for fdl in app.files.iter_mut() {
+        let file = &fdl.file;
+        let complete = file.complete.load(std::sync::atomic::Ordering::Relaxed);
+        if !complete {
+            let location = format!("{}/{}", file.dl_dir, file.name_on_disk);
+            let tmp_location = format!("{}/.{}.metadl", file.dl_dir, file.name_on_disk);
+            if Path::new(&location).exists() {
+                if let Err(e) = remove_file(&location) {
+                    let formatted_error = format!("{}: {:?}", location, &e);
+                    app.popups.error.value = formatted_error.clone();
+                    app.popups.error.show = true;
+                    app.popups
+                        .log
+                        .logs
+                        .push((formatted_time.clone(), formatted_error, *RED));
+                }
+            }
+            if Path::new(&tmp_location).exists() {
+                if let Err(e) = remove_file(&tmp_location) {
+                    let formatted_error = format!("{}: {:?}", tmp_location, &e);
+                    app.popups.error.value = formatted_error.clone();
+                    app.popups.error.show = true;
+                    app.popups
+                        .log
+                        .logs
+                        .push((formatted_time.clone(), formatted_error, *RED));
+                }
+            }
+        }
+    }
+    app.files
+        .retain(|f| !f.file.complete.load(std::sync::atomic::Ordering::Relaxed));
 }
